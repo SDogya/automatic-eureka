@@ -1,0 +1,16 @@
+{
+  "modes": ["ATGCCTAG", "GATCGCAT", "TGCTGCCA", "AGGATATA"],
+  "temperature": 1.0,
+  "seed": 42,
+  "samples": 10000,
+  "burn_tv": 0.0001,
+  "correlation_bound": 0.01,
+  "mask_probability": 0.5,
+  "epochs": 100,
+  "batch_size": 256,
+  "learning_rate": 0.001,
+  "eval_every": 10,
+  "validation_fraction": 0.1,
+  "data_dir": "data",
+  "plots_dir": "plots"
+}

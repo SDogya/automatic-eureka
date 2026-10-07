@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+data/*.parquet
+data/*.npz
+data/*.json
+plots/*.png
