@@ -1,5 +1,10 @@
 {
-  "modes": ["ATGCCTAG", "GATCGCAT", "TGCTGCCA", "AGGATATA"],
+  "modes": [
+    "ATGCCTAGAC",
+    "GATCGCATGT",
+    "TGCTGCCACA",
+    "AGGATATATG"
+  ],
   "temperature": 1.0,
   "seed": 42,
   "samples": 10000,
@@ -11,6 +16,6 @@
   "learning_rate": 0.001,
   "eval_every": 10,
   "validation_fraction": 0.1,
-  "data_dir": "data",
-  "plots_dir": "plots"
+  "data_dir": "data/length10",
+  "plots_dir": "plots/length10"
 }

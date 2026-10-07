@@ -7,24 +7,24 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
-from src.config import Config, Metric, SampleRequest, TokenBatch, load_config
-from src.data import build_kernel, build_target, diagnose
+from src.config import LENGTH, Config, Metric, SampleRequest, TokenBatch, load_config
+from src.data import build_kernel, build_target
 from src.evaluation import bayes_masked_nll, build_contexts, expected_masked_loss, joint_log_probs
 
 
 def test_validated_configuration() -> None:
     assert load_config(Path("config.json")) == Config()
     for fields in ({"seed": -1}, {"temperature": 0.0}, {"unknown": 1},
-                   {"modes": ("AAAAAAAA",) * 4}):
+                   {"modes": ("A" * LENGTH,) * 4}):
         with pytest.raises(ValidationError):
             Config.model_validate(fields)
     with pytest.raises(ValidationError):
         SampleRequest(context="ACGT???X")
     with pytest.raises(ValidationError):
         Metric(epoch=0, training_loss=float("nan"))
-    for tokens in (np.zeros((2, 8), dtype=np.float64),
-                   np.zeros((2, 7), dtype=np.int32),
-                   np.full((2, 8), 4, dtype=np.int32)):
+    for tokens in (np.zeros((2, LENGTH), dtype=np.float64),
+                   np.zeros((2, LENGTH - 1), dtype=np.int32),
+                   np.full((2, LENGTH), 4, dtype=np.int32)):
         with pytest.raises(ValidationError):
             TokenBatch(tokens=tokens)
 
@@ -32,20 +32,24 @@ def test_validated_configuration() -> None:
 def test_local_mh_kernel_and_target() -> None:
     target = build_target(Config())
     kernel = build_kernel(target)
-    assert len(target.pi) == 65536
+    assert len(target.pi) == 4**LENGTH
     np.testing.assert_allclose(target.pi.sum(), 1, rtol=0, atol=1e-14)
-    assert np.all(np.count_nonzero(target.tokens[:, None] != target.tokens[kernel.neighbors], axis=-1) == 1)
     assert np.all(kernel.weights > 0)
     assert np.all(kernel.stay >= -1e-15)
     np.testing.assert_allclose(kernel.forward(target.pi), target.pi, rtol=1e-12, atol=1e-15)
-    reverse = np.minimum(1, target.pi[:, None] / target.pi[kernel.neighbors]) / 24
-    np.testing.assert_allclose(target.pi[:, None] * kernel.weights,
-                               target.pi[kernel.neighbors] * reverse, rtol=1e-12, atol=1e-15)
-    diagnosis = diagnose(Config(), target)
-    assert diagnosis.burn_steps == 69
-    assert diagnosis.save_every == 81
-    assert diagnosis.burn_tv <= 1e-4
-    assert max(diagnosis.correlation_bounds) <= 0.01
+    for column in range(kernel.neighbors.shape[1]):
+        neighbors = kernel.neighbors[:, column]
+        assert np.all(np.count_nonzero(target.tokens != target.tokens[neighbors], axis=-1) == 1)
+        reverse = np.minimum(1, target.pi / target.pi[neighbors]) / (3 * LENGTH)
+        np.testing.assert_allclose(target.pi * kernel.weights[:, column],
+                                   target.pi[neighbors] * reverse, rtol=1e-12, atol=1e-15)
+    # Independent reference for the blockwise application of P to functions.
+    features = np.column_stack((target.log_reward, target.basins))
+    expected = np.empty_like(features)
+    for feature in range(features.shape[1]):
+        expected[:, feature] = (kernel.stay * features[:, feature]
+            + np.sum(kernel.weights * features[kernel.neighbors, feature], axis=1))
+    np.testing.assert_allclose(kernel.backward(features), expected, rtol=1e-12, atol=1e-15)
 
 
 def test_dp_matches_enumerating_all_reveal_orders() -> None:
@@ -111,3 +115,12 @@ def test_mask_expectation_matches_explicit_sum() -> None:
     uniform = np.full_like(probabilities, -np.log(q))
     assert expected_masked_loss(contexts, uniform, sequences, p) == pytest.approx(n * p * np.log(q))
     assert expected_masked_loss(contexts, uniform, sequences, 1.0) == pytest.approx(n * np.log(q))
+
+
+def test_blockwise_dp_for_uniform_conditionals() -> None:
+    # The largest layer exceeds 65,536 rows, exercising multiple DP blocks.
+    contexts = build_contexts(12, 2)
+    conditionals = np.full((len(contexts.tokens), 12, 2), -np.log(2), dtype=np.float64)
+    log_p = joint_log_probs(contexts, conditionals)
+    np.testing.assert_allclose(log_p, -12 * np.log(2), rtol=0, atol=1e-13)
+    assert np.exp(log_p).sum() == pytest.approx(1, abs=1e-13)

@@ -1,4 +1,4 @@
-"""A 12,352-parameter JAX MLP and random-order masked generation."""
+"""A 13,800-parameter JAX MLP and random-order masked generation."""
 
 from pathlib import Path
 from typing import NamedTuple
@@ -16,7 +16,7 @@ class Layer(NamedTuple):
 
 
 Params = tuple[Layer, Layer, Layer]
-SHAPES = ((40, 80), (80, 80), (80, 32))
+SHAPES = ((LENGTH * (MASK + 1), 80), (80, 80), (80, LENGTH * len(ALPHABET)))
 
 
 def init_parameters(key: jax.Array) -> Params:
@@ -31,7 +31,7 @@ def init_parameters(key: jax.Array) -> Params:
 
 
 def forward(params: Params, tokens: jax.Array) -> jax.Array:
-    hidden = jax.nn.one_hot(tokens, MASK + 1, dtype=jnp.float32).reshape((*tokens.shape[:-1], 40))
+    hidden = jax.nn.one_hot(tokens, MASK + 1, dtype=jnp.float32).reshape((*tokens.shape[:-1], LENGTH * (MASK + 1)))
     for layer in params[:-1]:
         hidden = jax.nn.gelu(hidden @ layer.weight + layer.bias, approximate=False)
     logits = hidden @ params[-1].weight + params[-1].bias

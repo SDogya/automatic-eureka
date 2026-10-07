@@ -20,7 +20,7 @@ def test_short_experiment_and_result_protection(tmp_path: Path) -> None:
                     data_dir=tmp_path / "data", plots_dir=tmp_path / "plots")
     metadata = generate(config)
     tokens, restored = load_dataset(config)
-    assert tokens.shape == (32, 8)
+    assert tokens.shape == (32, 10)
     assert restored == metadata
     with pytest.raises(FileExistsError):
         generate(config)
@@ -30,10 +30,10 @@ def test_short_experiment_and_result_protection(tmp_path: Path) -> None:
     assert all(abs(m.probability_sum - 1) < 1e-10 for m in report.metrics if m.probability_sum is not None)
     assert all((config.plots_dir / name).exists() for name in ("reward.png", "loss.png", "kl.png"))
     params = load_parameters(config.data_dir / "best.npz")
-    assert sample(params, SampleRequest(count=4)).shape == (4, 8)
+    assert sample(params, SampleRequest(count=4)).shape == (4, 10)
     assert (config.plots_dir / "distribution.png").exists()
     distribution = pq.read_table(config.data_dir / "best_distribution.parquet")
-    assert len(distribution) == 65536
+    assert len(distribution) == 4**10
     assert int(distribution.schema.metadata[b"epoch"]) == report.best_epoch
     target = distribution.column("target_probability").to_numpy()
     model = distribution.column("model_probability").to_numpy()
@@ -43,7 +43,7 @@ def test_short_experiment_and_result_protection(tmp_path: Path) -> None:
     assert float(target @ (np.log(target) - log_model)) == pytest.approx(best_metric.kl, abs=1e-12)
     with pytest.raises(FileExistsError):
         train(config)
-    with (config.data_dir / "data8.parquet").open("ab") as file:
+    with (config.data_dir / "data10.parquet").open("ab") as file:
         file.write(b"changed")
     with pytest.raises(ValueError, match="checksum"):
         load_dataset(config)

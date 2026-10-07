@@ -24,7 +24,11 @@ class Target(NamedTuple):
 
 def enumerate_tokens(base: int, length: int = LENGTH) -> IntArray:
     powers = base ** np.arange(length - 1, -1, -1, dtype=np.int32)
-    return (np.arange(base**length, dtype=np.int32)[:, None] // powers) % base
+    ids = np.arange(base**length, dtype=np.int32)
+    tokens = np.empty((len(ids), length), dtype=np.int32)
+    for position, power in enumerate(powers):
+        tokens[:, position] = (ids // power) % base
+    return tokens
 
 
 def build_target(config: Config) -> Target:
@@ -53,17 +57,19 @@ class Kernel(NamedTuple):
 
     def forward(self, distribution: FloatArray) -> FloatArray:
         """Row distribution multiplied by P; scatter incoming probability mass."""
-        return distribution * self.stay + np.bincount(
-            self.neighbors.ravel(),
-            weights=(distribution[:, None] * self.weights).ravel(),
-            minlength=len(distribution),
-        )
+        result = distribution * self.stay
+        for column in range(self.neighbors.shape[1]):
+            result += np.bincount(self.neighbors[:, column],
+                                  weights=distribution * self.weights[:, column],
+                                  minlength=len(distribution))
+        return result
 
     def backward(self, features: FloatArray) -> FloatArray:
         """P applied to functions of the state."""
-        return self.stay[:, None] * features + np.einsum(
-            "ij,ijk->ik", self.weights, features[self.neighbors]
-        )
+        result = self.stay[:, None] * features
+        for column in range(self.neighbors.shape[1]):
+            result += self.weights[:, column, None] * features[self.neighbors[:, column]]
+        return result
 
 
 def build_kernel(target: Target) -> Kernel:
@@ -73,16 +79,21 @@ def build_kernel(target: Target) -> Kernel:
         ids + (((target.tokens[:, i] + delta) % 4) - target.tokens[:, i]) * powers[i]
         for i in range(LENGTH) for delta in (1, 2, 3)
     ], axis=1)
-    weights = np.exp(np.minimum(target.log_pi[neighbors] - target.log_pi[:, None], 0)) / 24
+    weights = np.empty(neighbors.shape, dtype=np.float64)
+    for column in range(neighbors.shape[1]):
+        weights[:, column] = np.exp(np.minimum(
+            target.log_pi[neighbors[:, column]] - target.log_pi, 0)) / (3 * LENGTH)
     return Kernel(neighbors, weights, 1 - weights.sum(axis=1))
 
 
 def diagnose(config: Config, target: Target) -> Diagnostics:
     kernel = build_kernel(target)
-    reverse = np.exp(np.minimum(target.log_pi[:, None] - target.log_pi[kernel.neighbors], 0)) / 24
-    balance_error = float(np.max(np.abs(
-        target.pi[:, None] * kernel.weights - target.pi[kernel.neighbors] * reverse
-    )))
+    balance_error = 0.0
+    for column in range(kernel.neighbors.shape[1]):
+        neighbors = kernel.neighbors[:, column]
+        reverse = np.exp(np.minimum(target.log_pi - target.log_pi[neighbors], 0)) / (3 * LENGTH)
+        balance_error = max(balance_error, float(np.max(np.abs(
+            target.pi * kernel.weights[:, column] - target.pi[neighbors] * reverse))))
     stationarity_error = float(np.max(np.abs(kernel.forward(target.pi) - target.pi)))
     if max(balance_error, stationarity_error) > 1e-12:
         raise ArithmeticError("MH kernel fails detailed balance or stationarity")
@@ -146,7 +157,7 @@ def generate(config: Config, overwrite: bool = False) -> Metadata:
 
     from .plots import plot_reward
 
-    path = config.data_dir / "data8.parquet"
+    path = config.data_dir / "data10.parquet"
     metadata_path = config.data_dir / "metadata.json"
     if not overwrite and (path.exists() or metadata_path.exists()):
         raise FileExistsError("Dataset exists; use --overwrite to regenerate it")
@@ -216,7 +227,7 @@ def generate(config: Config, overwrite: bool = False) -> Metadata:
 def load_dataset(config: Config) -> tuple[IntArray, Metadata]:
     import pyarrow.parquet as pq
 
-    path = config.data_dir / "data8.parquet"
+    path = config.data_dir / "data10.parquet"
     metadata = Metadata.model_validate_json((config.data_dir / "metadata.json").read_text())
     fields = ("modes", "temperature", "seed", "samples", "burn_tv", "correlation_bound", "diagnostic_limit")
     if any(getattr(config, field) != getattr(metadata.config, field) for field in fields):

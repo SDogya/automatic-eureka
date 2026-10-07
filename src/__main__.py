@@ -12,7 +12,7 @@ def main() -> None:
     parser.add_argument("command", choices=("run", "generate", "train", "sample"))
     parser.add_argument("--config", type=Path, default=Path("config.json"))
     parser.add_argument("--overwrite", action="store_true", help="Replace existing results")
-    parser.add_argument("--context", default="????????", help="Eight A/C/G/T/? symbols")
+    parser.add_argument("--context", default="??????????", help="Ten A/C/G/T/? symbols")
     parser.add_argument("--count", type=int, default=10)
     parser.add_argument("--seed", type=int, help="Optional sampling seed")
     parser.add_argument("--checkpoint", type=Path, help="Defaults to data_dir/best.npz")
@@ -22,7 +22,7 @@ def main() -> None:
     if args.command in ("run", "generate"):
         from .data import generate, load_dataset
 
-        if args.command == "run" and not args.overwrite and (config.data_dir / "data8.parquet").exists():
+        if args.command == "run" and not args.overwrite and (config.data_dir / "data10.parquet").exists():
             load_dataset(config)
             print("Reusing validated dataset", flush=True)
         else:

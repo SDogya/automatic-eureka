@@ -10,7 +10,7 @@ from numpy.typing import NDArray
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 ALPHABET = "ACGT"
-LENGTH = 8
+LENGTH = 10
 MASK = 4
 IntArray = NDArray[np.int32]
 FloatArray = NDArray[np.float64]
@@ -32,7 +32,7 @@ class Record(BaseModel):
 
 
 class Config(Record):
-    modes: tuple[str, str, str, str] = ("ATGCCTAG", "GATCGCAT", "TGCTGCCA", "AGGATATA")
+    modes: tuple[str, str, str, str] = ("ATGCCTAGAC", "GATCGCATGT", "TGCTGCCACA", "AGGATATATG")
     temperature: float = Field(default=1.0, gt=0, allow_inf_nan=False)
     seed: int = Field(default=42, ge=0, le=2**32 - 1)
     samples: int = Field(default=10_000, ge=10)
@@ -46,14 +46,14 @@ class Config(Record):
     eval_every: int = Field(default=10, ge=1)
     validation_fraction: float = Field(default=0.1, gt=0, lt=1)
     eval_batch_size: int = Field(default=8192, ge=1)
-    data_dir: Path = Path("data")
-    plots_dir: Path = Path("plots")
+    data_dir: Path = Path("data/length10")
+    plots_dir: Path = Path("plots/length10")
 
     @model_validator(mode="after")
     def check_modes_and_split(self) -> Self:
         for mode in self.modes:
             if len(mode) != LENGTH or set(mode) - set(ALPHABET):
-                raise ValueError("Each mode must contain exactly eight A/C/G/T symbols")
+                raise ValueError("Each mode must contain exactly ten A/C/G/T symbols")
         if any(
             sum(a != b for a, b in zip(x, y)) < 6
             for i, x in enumerate(self.modes)
@@ -105,21 +105,21 @@ class Metric(Record):
 class TrainingReport(Record):
     config: Config
     software: dict[str, str]
-    parameter_count: Literal[12352] = 12352
+    parameter_count: Literal[13800] = 13800
     dataset_sha256: str
     best_epoch: int
     metrics: list[Metric]
 
 
 class SampleRequest(Record):
-    context: str = "????????"
+    context: str = "??????????"
     count: int = Field(default=10, ge=1)
     seed: int = Field(default=42, ge=0, le=2**32 - 1)
 
     @model_validator(mode="after")
     def check_context(self) -> Self:
         if len(self.context) != LENGTH or set(self.context) - set(ALPHABET + "?"):
-            raise ValueError("Context must contain eight A/C/G/T/? symbols")
+            raise ValueError("Context must contain ten A/C/G/T/? symbols")
         return self
 
 
@@ -131,7 +131,7 @@ class TokenBatch(BaseModel):
     def check_tokens(self) -> Self:
         tokens = self.tokens
         if tokens.dtype != np.int32 or tokens.ndim != 2 or tokens.shape[1] != LENGTH:
-            raise ValueError("Tokens must be an int32 array of shape (N, 8)")
+            raise ValueError("Tokens must be an int32 array of shape (N, 10)")
         if np.any((tokens < 0) | (tokens >= len(ALPHABET))):
             raise ValueError("Tokens must be in [0, 3]")
         return self

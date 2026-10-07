@@ -7,7 +7,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .config import Config, FloatArray, IntArray, TrainingReport
+from .config import LENGTH, Config, FloatArray, IntArray, TrainingReport
 from .data import Target, build_target
 from .evaluation import bayes_masked_nll, build_contexts
 
@@ -17,9 +17,9 @@ def plot_reward(
 ) -> None:
     config.plots_dir.mkdir(parents=True, exist_ok=True)
     figure, axis = plt.subplots(figsize=(7, 4))
-    theoretical = np.bincount(target.distance, weights=target.pi, minlength=9)[::-1]
+    theoretical = np.bincount(target.distance, weights=target.pi, minlength=LENGTH + 1)[::-1]
     axis.bar(
-        np.arange(-7, 2),
+        np.arange(1 - LENGTH, 2),
         theoretical,
         alpha=0.25,
         label="Exact target π",
@@ -31,14 +31,14 @@ def plot_reward(
     ):
         axis.hist(
             target.log_reward[ids],
-            bins=np.arange(-7.5, 2, 1),
+            bins=np.arange(0.5 - LENGTH, 2, 1),
             weights=np.full(len(ids), 1 / len(ids)),
             histtype="step",
             linewidth=1.7,
             label=label,
             color=color,
         )
-    axis.set(xlabel="ln R(x)", ylabel="Probability", xticks=np.arange(-7, 2))
+    axis.set(xlabel="ln R(x)", ylabel="Probability", xticks=np.arange(1 - LENGTH, 2))
     axis.legend()
     figure.tight_layout()
     figure.savefig(config.plots_dir / "reward.png", dpi=180)
@@ -111,13 +111,13 @@ def plot_distribution(config: Config, target: Target,
                       log_probs: FloatArray, epoch: int) -> None:
     """Compare the exact target and learned distribution, without sampled noise."""
     model = np.exp(log_probs)
-    target_histogram = np.bincount(target.distance, weights=target.pi, minlength=9)[::-1]
-    model_histogram = np.bincount(target.distance, weights=model, minlength=9)[::-1]
+    target_histogram = np.bincount(target.distance, weights=target.pi, minlength=LENGTH + 1)[::-1]
+    model_histogram = np.bincount(target.distance, weights=model, minlength=LENGTH + 1)[::-1]
     figure, (reward_axis, basin_axis) = plt.subplots(2, 1, figsize=(8, 7))
-    reward_axis.bar(np.arange(-7, 2), target_histogram, alpha=0.3, label="Target π")
-    reward_axis.stairs(model_histogram, np.arange(-7.5, 2, 1),
+    reward_axis.bar(np.arange(1 - LENGTH, 2), target_histogram, alpha=0.3, label="Target π")
+    reward_axis.stairs(model_histogram, np.arange(0.5 - LENGTH, 2, 1),
                        color="tab:orange", linewidth=2, label=f"Model pθ, epoch {epoch}")
-    reward_axis.set(xlabel="ln R(x)", ylabel="Probability", xticks=np.arange(-7, 2),
+    reward_axis.set(xlabel="ln R(x)", ylabel="Probability", xticks=np.arange(1 - LENGTH, 2),
                     title="Log reward distribution")
     reward_axis.legend()
     positions = np.arange(len(config.modes))

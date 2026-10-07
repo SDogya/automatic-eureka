@@ -1,1 +1,1 @@
-"""Eight-symbol DNA experiment. Run with ``python -m src``."""
+"""Ten-symbol DNA experiment. Run with ``python -m src``."""

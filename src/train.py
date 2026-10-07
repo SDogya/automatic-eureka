@@ -26,7 +26,7 @@ def train(config: Config, overwrite: bool = False) -> TrainingReport:
     shuffle_rng = rng(config.seed, 3)
     key = jax.random.fold_in(jax.random.key(config.seed), 3)
     params = init_parameters(jax.random.fold_in(jax.random.key(config.seed), 2))
-    if parameter_count(params) != 12352:
+    if parameter_count(params) != 13800:
         raise ArithmeticError("Unexpected parameter count")
     optimizer = optax.adam(config.learning_rate)
     state = optimizer.init(params)
@@ -50,7 +50,7 @@ def train(config: Config, overwrite: bool = False) -> TrainingReport:
         mask = jax.random.bernoulli(mask_key, config.mask_probability, batch.shape)
         total += float(loss_fn(params, batch, mask)) * len(batch)
     initial = evaluate(params, contexts, target, validation,
-                       config.mask_probability, config.eval_batch_size)
+                       config.mask_probability, config.eval_batch_size, config.data_dir)
     metrics = [Metric(epoch=0, training_loss=total / len(training),
                       validation_loss=initial.validation_loss, kl=initial.kl,
                       probability_sum=initial.probability_sum)]
@@ -73,7 +73,7 @@ def train(config: Config, overwrite: bool = False) -> TrainingReport:
         values: dict[str, float] = {}
         if epoch % config.eval_every == 0 or epoch == config.epochs:
             result = evaluate(params, contexts, target, validation,
-                              config.mask_probability, config.eval_batch_size)
+                              config.mask_probability, config.eval_batch_size, config.data_dir)
             values = {"validation_loss": result.validation_loss, "kl": result.kl,
                       "probability_sum": result.probability_sum}
             if result.validation_loss < best_loss:

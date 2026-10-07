@@ -1,0 +1,81 @@
+{
+  "config": {
+    "modes": [
+      "ATGCCTAGAC",
+      "GATCGCATGT",
+      "TGCTGCCACA",
+      "AGGATATATG"
+    ],
+    "temperature": 1.0,
+    "seed": 42,
+    "samples": 10000,
+    "burn_tv": 0.0001,
+    "correlation_bound": 0.01,
+    "diagnostic_limit": 10000,
+    "mask_probability": 0.5,
+    "epochs": 100,
+    "batch_size": 256,
+    "learning_rate": 0.001,
+    "eval_every": 10,
+    "validation_fraction": 0.1,
+    "eval_batch_size": 8192,
+    "data_dir": "data/length10",
+    "plots_dir": "plots/length10"
+  },
+  "software": {
+    "python": "3.14.7",
+    "jax": "0.11.2",
+    "jaxlib": "0.11.2",
+    "optax": "0.2.8",
+    "numpy": "2.5.3",
+    "pydantic": "2.13.5",
+    "pyarrow": "25.0.1",
+    "matplotlib": "3.11.2"
+  },
+  "diagnostics": {
+    "burn_steps": 89,
+    "save_every": 118,
+    "burn_tv": 0.00009496348062217833,
+    "correlation_bounds": [
+      0.000017251474637121206,
+      0.009976584375894658,
+      0.009976584375894857,
+      0.009976584375894614,
+      0.009976584375895024
+    ],
+    "stationarity_error": 1.8973538018496328e-19,
+    "detailed_balance_error": 4.235164736271502e-22,
+    "expected_acceptance": 0.7005001037156232
+  },
+  "acceptance_rate": 0.7007652542372881,
+  "target_log_normalizer": 9.518688180012198,
+  "target_basin_means": [
+    0.249999999999989,
+    0.24999999999999825,
+    0.2500000000000024,
+    0.24999999999999567
+  ],
+  "mcmc": {
+    "reward_tv": 0.006903404267427091,
+    "full_tv": 0.9594663637739194,
+    "basin_means": [
+      0.2563166666666668,
+      0.24688333333333334,
+      0.24850000000000014,
+      0.24830000000000013
+    ],
+    "mean_log_reward": -3.6647
+  },
+  "exact_sample": {
+    "reward_tv": 0.009036710226687804,
+    "full_tv": 0.9588804576509768,
+    "basin_means": [
+      0.24885,
+      0.24683333333333343,
+      0.2524166666666668,
+      0.25190000000000007
+    ],
+    "mean_log_reward": -3.6689
+  },
+  "dataset_sha256": "4b5f2e006b0a213654d76e74f2fd7fb7a46e39a2d73cf48248795680719d870f"
+}
