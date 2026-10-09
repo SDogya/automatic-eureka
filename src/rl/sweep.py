@@ -35,6 +35,8 @@ def main() -> None:
     parser.add_argument("--arm", choices=("trafl", "tb", "espo", "espo_ppo", "grpo", "justgrpo"), default="trafl")
     parser.add_argument("--mask-scheme", choices=("iid", "comp"), default="iid")
     parser.add_argument("--var-lambda", type=float, default=0.0, help="TraFL + across-order variance penalty")
+    parser.add_argument("--estimator", choices=("square", "split", "pairwise", "exact_masks", "exact_lik"),
+                        default="square", help="TraFL residual estimator (bitseq thread's variants)")
     parser.add_argument("--kappa", type=float, default=0.05, help="ESPO k2 coefficient")
     parser.add_argument("--ppo-epochs", type=int, default=1, help="updates per rollout batch (ESPO's mu)")
     parser.add_argument("--eps-clip", type=float, default=0.2)
@@ -48,7 +50,7 @@ def main() -> None:
                         beta=args.beta, mask_samples=args.mask_samples,
                         plateau_window=args.plateau_window, plateau_patience=args.plateau_patience,
                         context_source=args.context_source, arm=args.arm, mask_scheme=args.mask_scheme,
-                        var_lambda=args.var_lambda, kappa=args.kappa, ppo_epochs=args.ppo_epochs,
+                        var_lambda=args.var_lambda, estimator=args.estimator, kappa=args.kappa, ppo_epochs=args.ppo_epochs,
                         eps_clip=args.eps_clip)
     root = args.output / f"seed_{args.seed}"
     log = LogFn(root / f"train_k{args.exponent}.log")

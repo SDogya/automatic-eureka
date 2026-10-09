@@ -29,6 +29,7 @@ from ..model import Layer, Params, forward
 from ..metrics.decoders import proposal_terminal_log_probs
 from ..metrics.paths import log_conditionals, path_kl
 from .losses.baselines import ar_token_log_probs, espo_loss, grpo_loss, justgrpo_loss, order_variance
+from .losses.estimators import Estimator, residual_loss
 from .losses.masks import Scheme
 from .losses.trafl import Normalization, Reference, trafl_residuals
 from .losses.trajectory_balance import trajectory_residuals
@@ -59,6 +60,7 @@ class TraflConfig(Record):
     # explicit across-order variance penalty; ppo_epochs = policy updates per rollout batch (ESPO's mu)
     arm: Literal["trafl", "tb", "espo", "espo_ppo", "grpo", "justgrpo"] = "trafl"
     mask_scheme: Scheme = "iid"
+    estimator: Estimator = "square"  # trafl only: square (this repo), split / pairwise (U-statistics), exact_masks, exact_lik
     var_lambda: float = Field(default=0.0, ge=0)
     kappa: float = Field(default=0.05, ge=0)
     ppo_epochs: int = Field(default=1, ge=1)
@@ -238,7 +240,7 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
         key = jax.random.fold_in(key, first)
     forward = arch.forward  # noqa: F811  (local: every closure below uses the run's architecture)
     reference = Reference(forward, initial) if trafl.reference == "initial" else None
-    if reference is None and (trafl.arm in ("espo", "espo_ppo") or trafl.var_lambda):
+    if reference is None and (trafl.arm in ("espo", "espo_ppo") or trafl.var_lambda or trafl.estimator != "square"):
         raise ValueError(f"arm {trafl.arm} with var_lambda={trafl.var_lambda} needs reference='initial'")
     def rate(peak: float) -> optax.Schedule:
         if trafl.schedule == "constant":
@@ -301,7 +303,13 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
 
         def loss_fn(p: tuple[Params, ZParams]):
             zero = jnp.zeros(rewards.shape)
-            if trafl.arm == "trafl":
+            if trafl.arm == "trafl" and trafl.estimator != "square":
+                beta = trafl.beta / hidden
+                centered = rewards - rewards.mean(axis=1, keepdims=True)
+                shift = beta[:, None] * centered - log_z_forward(p[1], contexts)[:, None]
+                loss, delta = residual_loss(trafl.estimator, forward, p[0], reference, contexts, completions, shift,
+                                            loss_key, trafl.mask_samples, trafl.mask_scheme)
+            elif trafl.arm == "trafl":
                 beta = trafl.beta / hidden  # 1/l surrogate is log p / u, so beta / u keeps the target exp(beta r)
                 delta = trafl_residuals(p, forward, log_z_forward, contexts, completions, rewards, loss_key, beta,
                                         reference=reference, samples=trafl.mask_samples,
