@@ -17,13 +17,18 @@ def main() -> None:
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--exponent", type=int, required=True)
-    parser.add_argument("--steps", type=int, default=3000)
-    parser.add_argument("--save-every", type=int, default=100)
-    parser.add_argument("--schedule", choices=("constant", "cosine"), default="cosine")
+    parser.add_argument("--steps", type=int, default=30000, help="Upper bound; training stops on a loss plateau")
+    parser.add_argument("--save-every", type=int, default=250)
+    parser.add_argument("--schedule", choices=("constant", "cosine"), default="constant")
     parser.add_argument("--start-models", type=Path, default=Path("models/pretrain"))
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--learning-rate", type=float, default=3e-3)
-    parser.add_argument("--stop-on-plateau", action="store_true")
+    parser.add_argument("--learning-rate", type=float, default=1e-3)
+    parser.add_argument("--beta", type=float, default=1.5, help="TraFL beta: target p_ref(tau|x) exp(beta r(y))")
+    parser.add_argument("--mask-samples", type=int, default=32, help="K masks per completion in the surrogate")
+    parser.add_argument("--plateau-window", type=int, default=2000)
+    parser.add_argument("--context-source", choices=("uniform", "model"), default="uniform")
+    parser.add_argument("--plateau-patience", type=int, default=2000)
+    parser.add_argument("--no-plateau-stop", dest="stop_on_plateau", action="store_false")
     parser.add_argument("--only", choices=("finetune", "random_init"), help="Train one start only")
     parser.add_argument("--resume-from", type=Path, help="Folder with seed_s/<name>_k runs to continue")
     parser.add_argument("--resume-step", type=int)
@@ -31,7 +36,10 @@ def main() -> None:
     os.environ["JAX_PLATFORMS"] = "cpu"
     config = load_config(args.config)
     trafl = TraflConfig(steps=args.steps, save_every=args.save_every, schedule=args.schedule, seed=args.seed,
-                        learning_rate=args.learning_rate, stop_on_plateau=args.stop_on_plateau)
+                        learning_rate=args.learning_rate, stop_on_plateau=args.stop_on_plateau,
+                        beta=args.beta, mask_samples=args.mask_samples,
+                        plateau_window=args.plateau_window, plateau_patience=args.plateau_patience,
+                        context_source=args.context_source)
     root = args.output / f"seed_{args.seed}"
     log = LogFn(root / f"train_k{args.exponent}.log")
     scores = tfbind8_scores()

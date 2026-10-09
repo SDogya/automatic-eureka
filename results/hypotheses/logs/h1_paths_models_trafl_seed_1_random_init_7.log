@@ -1,0 +1,10 @@
+[H1 seed_1_random_init_7] step 0: median |f| 0.000, share of samples with |f| > 0.5: 0.00
+[H1 seed_1_random_init_7] step 250: median |f| 0.178, share of samples with |f| > 0.5: 0.20
+[H1 seed_1_random_init_7] step 500: median |f| 0.182, share of samples with |f| > 0.5: 0.19
+[H1 seed_1_random_init_7] step 1000: median |f| 0.243, share of samples with |f| > 0.5: 0.21
+[H1 seed_1_random_init_7] step 2000: median |f| 0.265, share of samples with |f| > 0.5: 0.27
+[H1 seed_1_random_init_7] step 5000: median |f| 0.238, share of samples with |f| > 0.5: 0.17
+[H1 seed_1_random_init_7] step 10000: median |f| 0.225, share of samples with |f| > 0.5: 0.13
+[H1 seed_1_random_init_7] step 15000: median |f| 0.229, share of samples with |f| > 0.5: 0.16
+[H1 seed_1_random_init_7] step 20000: median |f| 0.192, share of samples with |f| > 0.5: 0.16
+[H1 seed_1_random_init_7] step 22500: median |f| 0.198, share of samples with |f| > 0.5: 0.19

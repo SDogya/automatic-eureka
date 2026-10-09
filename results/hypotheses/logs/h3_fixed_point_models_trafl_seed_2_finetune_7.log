@@ -1,0 +1,9 @@
+[H3 seed_2_finetune_7] step 0: median slope 0.000, median R² nan
+[H3 seed_2_finetune_7] step 250: median slope 0.672, median R² 0.671
+[H3 seed_2_finetune_7] step 500: median slope 0.645, median R² 0.856
+[H3 seed_2_finetune_7] step 1000: median slope 0.748, median R² 0.800
+[H3 seed_2_finetune_7] step 2000: median slope 0.713, median R² 0.881
+[H3 seed_2_finetune_7] step 5000: median slope 0.627, median R² 0.925
+[H3 seed_2_finetune_7] step 10000: median slope 0.589, median R² 0.920
+[H3 seed_2_finetune_7] step 15000: median slope 0.588, median R² 0.951
+[H3 seed_2_finetune_7] step 20000: median slope 0.611, median R² 0.950

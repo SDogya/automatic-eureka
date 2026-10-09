@@ -1,0 +1,10 @@
+[H2 seed_2_random_init_7] step 0: slope nan, R² nan, |bias| median 0.0000, noise std 0.0000
+[H2 seed_2_random_init_7] step 250: slope 1.020, R² 0.999, |bias| median 0.0034, noise std 0.1722
+[H2 seed_2_random_init_7] step 500: slope 1.021, R² 0.999, |bias| median 0.0037, noise std 0.2140
+[H2 seed_2_random_init_7] step 1000: slope 1.024, R² 0.998, |bias| median 0.0047, noise std 0.1860
+[H2 seed_2_random_init_7] step 2000: slope 1.021, R² 1.000, |bias| median 0.0054, noise std 0.2438
+[H2 seed_2_random_init_7] step 5000: slope 1.033, R² 0.998, |bias| median 0.0052, noise std 0.2030
+[H2 seed_2_random_init_7] step 10000: slope 1.031, R² 0.999, |bias| median 0.0058, noise std 0.1936
+[H2 seed_2_random_init_7] step 15000: slope 1.026, R² 0.999, |bias| median 0.0025, noise std 0.1776
+[H2 seed_2_random_init_7] step 20000: slope 1.013, R² 0.999, |bias| median 0.0026, noise std 0.1851
+[H2 seed_2_random_init_7] step 22500: slope 1.030, R² 1.000, |bias| median 0.0037, noise std 0.1874

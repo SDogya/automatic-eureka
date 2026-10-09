@@ -30,18 +30,21 @@ class TraflConfig(Record):
     save_every: int = Field(default=5, ge=1)
     contexts: int = Field(default=256, ge=1)
     group: int = Field(default=5, ge=2)
-    mask_samples: int = Field(default=4, ge=1)
-    context_mask_probability: float = Field(default=0.5, gt=0, le=1)
-    learning_rate: float = Field(default=3e-3, gt=0)
+    mask_samples: int = Field(default=32, ge=1)
+    context_mask_probability: float = Field(default=0.5, gt=0, le=1)  # only for context_source="model"
+    # "uniform": u ~ U{1..L} hidden positions chosen uniformly, revealed letters uniform (prompts
+    # independent of the model); "model": the model's own string with each position hidden w.p. 0.5.
+    context_source: Literal["uniform", "model"] = "uniform"
+    learning_rate: float = Field(default=1e-3, gt=0)
     schedule: Literal["constant", "cosine"] = "constant"
     final_lr_fraction: float = Field(default=0.01, gt=0, le=1)
     log_z_learning_rate: float = Field(default=1e-2, gt=0)
     log_z_width: int = Field(default=32, ge=1)
-    beta: float = Field(default=1.0, gt=0)
+    beta: float = Field(default=1.5, gt=0)
     normalization: Normalization = "paper"
     reference: Literal["initial", "uniform"] = "initial"
-    stop_on_plateau: bool = False
-    plateau_window: int = Field(default=500, ge=1)
+    stop_on_plateau: bool = True
+    plateau_window: int = Field(default=2000, ge=1)
     plateau_patience: int = Field(default=2000, ge=1)
     plateau_tolerance: float = Field(default=0.01, ge=0)
     seed: int = 42
@@ -187,10 +190,17 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
     @jax.jit
     def train_step(params: tuple[Params, ZParams], state: optax.OptState, key: jax.Array):
         base_key, mask_key, fill_key, loss_key = jax.random.split(key, 4)
-        empty = jnp.full((trafl.contexts, LENGTH), MASK, dtype=jnp.int32)
-        base, _ = complete(params[0], empty, base_key)
-        hide = jax.random.bernoulli(mask_key, trafl.context_mask_probability, base.shape)
-        hide = jnp.where(hide.any(axis=1, keepdims=True), hide, True)
+        shape = (trafl.contexts, LENGTH)
+        if trafl.context_source == "uniform":
+            count_key, order_key = jax.random.split(mask_key)
+            base = jax.random.randint(base_key, shape, 0, 4, dtype=jnp.int32)
+            hidden_count = jax.random.randint(count_key, (trafl.contexts, 1), 1, LENGTH + 1)
+            rank = jnp.argsort(jnp.argsort(jax.random.uniform(order_key, shape), axis=1), axis=1)
+            hide = rank < hidden_count
+        else:
+            base, _ = complete(params[0], jnp.full(shape, MASK, dtype=jnp.int32), base_key)
+            hide = jax.random.bernoulli(mask_key, trafl.context_mask_probability, shape)
+            hide = jnp.where(hide.any(axis=1, keepdims=True), hide, True)
         contexts = jnp.where(hide, MASK, base)
         repeated = jnp.repeat(contexts, trafl.group, axis=0)
         completions = complete(params[0], repeated, fill_key)[0].reshape(trafl.contexts, trafl.group, LENGTH)

@@ -1,0 +1,10 @@
+[H3 seed_1_random_init_7] step 0: median slope 0.000, median R² nan
+[H3 seed_1_random_init_7] step 250: median slope 0.825, median R² 0.891
+[H3 seed_1_random_init_7] step 500: median slope 0.727, median R² 0.942
+[H3 seed_1_random_init_7] step 1000: median slope 0.777, median R² 0.947
+[H3 seed_1_random_init_7] step 2000: median slope 0.732, median R² 0.965
+[H3 seed_1_random_init_7] step 5000: median slope 0.717, median R² 0.982
+[H3 seed_1_random_init_7] step 10000: median slope 0.703, median R² 0.986
+[H3 seed_1_random_init_7] step 15000: median slope 0.707, median R² 0.993
+[H3 seed_1_random_init_7] step 20000: median slope 0.707, median R² 0.994
+[H3 seed_1_random_init_7] step 22500: median slope 0.698, median R² 0.991

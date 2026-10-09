@@ -1,0 +1,62 @@
+{
+  "name": "finetune_5",
+  "init": "finetune",
+  "hidden_width": 32,
+  "start": "models/pretrain/mlp_5/best.npz",
+  "config": {
+    "reward": "potts_tfbind8",
+    "beta": 3.5,
+    "temperature": 1.0,
+    "seed": 42,
+    "samples": 10000,
+    "burn_tv": 0.0001,
+    "correlation_bound": 0.01,
+    "diagnostic_limit": 10000,
+    "mask_probability": 0.5,
+    "epochs": 100,
+    "batch_size": 256,
+    "learning_rate": 0.001,
+    "eval_every": 10,
+    "validation_fraction": 0.1,
+    "eval_batch_size": 8192,
+    "data_dir": "data/tfbind8",
+    "plots_dir": "data/tfbind8",
+    "models_dir": "models/trafl",
+    "hidden_exponents": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ]
+  },
+  "segments": [
+    {
+      "first_step": 0,
+      "trafl": {
+        "steps": 30000,
+        "save_every": 250,
+        "contexts": 256,
+        "group": 5,
+        "mask_samples": 32,
+        "context_mask_probability": 0.5,
+        "context_source": "uniform",
+        "learning_rate": 0.001,
+        "schedule": "constant",
+        "final_lr_fraction": 0.01,
+        "log_z_learning_rate": 0.01,
+        "log_z_width": 32,
+        "beta": 1.5,
+        "normalization": "paper",
+        "reference": "initial",
+        "stop_on_plateau": true,
+        "plateau_window": 2000,
+        "plateau_patience": 2000,
+        "plateau_tolerance": 0.01,
+        "seed": 1
+      }
+    }
+  ]
+}

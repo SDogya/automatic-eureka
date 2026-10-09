@@ -1,0 +1,9 @@
+[H2 seed_1_finetune_7] step 0: slope nan, R² nan, |bias| median 0.0000, noise std 0.0000
+[H2 seed_1_finetune_7] step 250: slope 1.035, R² 0.986, |bias| median 0.0000, noise std 0.1009
+[H2 seed_1_finetune_7] step 500: slope 1.143, R² 0.964, |bias| median 0.0000, noise std 0.0973
+[H2 seed_1_finetune_7] step 1000: slope 1.181, R² 0.986, |bias| median 0.0013, noise std 0.1888
+[H2 seed_1_finetune_7] step 2000: slope 0.946, R² 0.928, |bias| median 0.0000, noise std 0.1657
+[H2 seed_1_finetune_7] step 5000: slope 1.177, R² 0.879, |bias| median 0.0000, noise std 0.1349
+[H2 seed_1_finetune_7] step 10000: slope 1.169, R² 0.926, |bias| median 0.0000, noise std 0.1426
+[H2 seed_1_finetune_7] step 15000: slope 1.204, R² 0.829, |bias| median 0.0000, noise std 0.1228
+[H2 seed_1_finetune_7] step 20000: slope 1.271, R² 0.960, |bias| median 0.0000, noise std 0.1470

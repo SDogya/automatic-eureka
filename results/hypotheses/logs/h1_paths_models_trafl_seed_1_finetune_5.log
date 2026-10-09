@@ -1,0 +1,9 @@
+[H1 seed_1_finetune_5] step 0: median |f| 0.000, share of samples with |f| > 0.5: 0.00
+[H1 seed_1_finetune_5] step 250: median |f| 0.545, share of samples with |f| > 0.5: 0.57
+[H1 seed_1_finetune_5] step 500: median |f| 0.550, share of samples with |f| > 0.5: 0.54
+[H1 seed_1_finetune_5] step 1000: median |f| 0.474, share of samples with |f| > 0.5: 0.47
+[H1 seed_1_finetune_5] step 2000: median |f| 0.426, share of samples with |f| > 0.5: 0.40
+[H1 seed_1_finetune_5] step 5000: median |f| 0.451, share of samples with |f| > 0.5: 0.48
+[H1 seed_1_finetune_5] step 10000: median |f| 0.515, share of samples with |f| > 0.5: 0.52
+[H1 seed_1_finetune_5] step 15000: median |f| 0.443, share of samples with |f| > 0.5: 0.48
+[H1 seed_1_finetune_5] step 20000: median |f| 0.543, share of samples with |f| > 0.5: 0.53
