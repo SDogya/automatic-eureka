@@ -32,12 +32,14 @@ def main() -> None:
     parser.add_argument("--plateau-patience", type=int, default=2000)
     parser.add_argument("--no-plateau-stop", dest="stop_on_plateau", action="store_false")
     parser.add_argument("--only", choices=("finetune", "random_init"), help="Train one start only")
-    parser.add_argument("--arm", choices=("trafl", "tb", "espo", "espo_ppo", "grpo", "justgrpo", "entppo", "rspo"),
+    parser.add_argument("--arm", choices=("trafl", "tb", "espo", "espo_ppo", "grpo", "justgrpo", "entppo", "rspo",
+                                          "db", "subtb"),
                         default="trafl")
     parser.add_argument("--gae-lambda", type=float, default=0.7, help="entppo GAE lambda")
     parser.add_argument("--eval-steps", type=int, nargs="*", default=[],
                         help="extra exact evaluations, e.g. 1 2 4 8 16 32 64 128 (matched comparisons need early points)")
     parser.add_argument("--rspo-lambda", type=float, default=0.01, help="rspo feedback coefficient")
+    parser.add_argument("--subtb-lambda", type=float, default=0.9, help="subtb sub-trajectory weight")
     parser.add_argument("--no-advantage-std", dest="advantage_std", action="store_false",
                         help="rspo: centred instead of std-normalised advantages")
     parser.add_argument("--mask-scheme", choices=("iid", "comp"), default="iid")
@@ -59,7 +61,8 @@ def main() -> None:
                         context_source=args.context_source, arm=args.arm, mask_scheme=args.mask_scheme,
                         var_lambda=args.var_lambda, estimator=args.estimator, kappa=args.kappa, ppo_epochs=args.ppo_epochs,
                         eps_clip=args.eps_clip, gae_lambda=args.gae_lambda, rspo_lambda=args.rspo_lambda,
-                        advantage_std=args.advantage_std, eval_steps=tuple(args.eval_steps))
+                        advantage_std=args.advantage_std, eval_steps=tuple(args.eval_steps),
+                        subtb_lambda=args.subtb_lambda)
     root = args.output / f"seed_{args.seed}"
     log = LogFn(root / f"train_k{args.exponent}.log")
     scores = tfbind8_scores()

@@ -30,6 +30,7 @@ from ..metrics.decoders import proposal_terminal_log_probs
 from ..metrics.paths import log_conditionals, path_kl
 from .losses.baselines import ar_token_log_probs, espo_loss, grpo_loss, justgrpo_loss, order_variance, rspo_loss
 from .losses.entppo import entppo_loss
+from .losses.flow_balance import db_loss, subtb_loss
 from .losses.estimators import Estimator, residual_loss
 from .losses.masks import Scheme
 from .losses.trafl import Normalization, Reference, trafl_residuals
@@ -59,7 +60,7 @@ class TraflConfig(Record):
     reference: Literal["initial", "uniform"] = "initial"
     # arm and its knobs: beta (trafl, tb), kappa (espo, espo_ppo), none (grpo, justgrpo); var_lambda adds TraFL's
     # explicit across-order variance penalty; ppo_epochs = policy updates per rollout batch (ESPO's mu)
-    arm: Literal["trafl", "tb", "espo", "espo_ppo", "grpo", "justgrpo", "entppo", "rspo"] = "trafl"
+    arm: Literal["trafl", "tb", "espo", "espo_ppo", "grpo", "justgrpo", "entppo", "rspo", "db", "subtb"] = "trafl"
     mask_scheme: Scheme = "iid"
     estimator: Estimator = "square"  # trafl only: square (this repo), split / pairwise (U-statistics), exact_masks, exact_lik
     var_lambda: float = Field(default=0.0, ge=0)
@@ -69,6 +70,7 @@ class TraflConfig(Record):
     gae_lambda: float = Field(default=0.7, ge=0, le=1)  # entppo: GAE lambda (paper 0.7); the log Z head is its V(s)
     rspo_lambda: float = Field(default=0.01, ge=0)      # rspo: feedback coefficient (paper 0.01); target A / lambda
     advantage_std: bool = True                          # rspo: std-normalise the group advantage (optional in paper)
+    subtb_lambda: float = Field(default=0.9, gt=0)      # subtb: sub-trajectory weight lambda^length
     eval_steps: tuple[int, ...] = ()  # extra exact evaluations (e.g. log-spaced early), besides every save_every
     stop_on_plateau: bool = True
     plateau_window: int = Field(default=2000, ge=1)
@@ -245,7 +247,7 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
         key = jax.random.fold_in(key, first)
     forward = arch.forward  # noqa: F811  (local: every closure below uses the run's architecture)
     reference = Reference(forward, initial) if trafl.reference == "initial" else None
-    if reference is None and (trafl.arm in ("espo", "espo_ppo", "entppo", "rspo") or trafl.var_lambda
+    if reference is None and (trafl.arm in ("espo", "espo_ppo", "entppo", "rspo", "db", "subtb") or trafl.var_lambda
                               or trafl.estimator != "square"):
         raise ValueError(f"arm {trafl.arm} with var_lambda={trafl.var_lambda} needs reference='initial'")
     def rate(peak: float) -> optax.Schedule:
@@ -338,6 +340,10 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
                 delta = zero
                 loss = justgrpo_loss(p[0], forward, contexts, completions, rewards,
                                      old=old[0] if trafl.ppo_epochs > 1 else None, eps_clip=trafl.eps_clip)
+            elif trafl.arm in ("db", "subtb"):  # relative flow balance; the log Z head is the state flow V(s)
+                delta = zero
+                args = (p[0], p[1], forward, log_z_forward, reference, contexts, completions, orders, rewards, trafl.beta)
+                loss = db_loss(*args) if trafl.arm == "db" else subtb_loss(*args, lam=trafl.subtb_lambda)
             elif trafl.arm == "rspo":
                 delta = zero
                 loss = rspo_loss(p[0], forward, contexts, completions, rewards, loss_key, reference=reference,

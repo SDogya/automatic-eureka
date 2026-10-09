@@ -23,6 +23,8 @@ ARM_KNOBS = {
     "justgrpo": ("ppo_epochs", "eps_clip"),
     "entppo": ("beta", "gae_lambda", "ppo_epochs", "eps_clip"),
     "rspo": ("rspo_lambda", "advantage_std", "mask_scheme", "mask_samples"),
+    "db": ("beta",),
+    "subtb": ("beta", "subtb_lambda"),
 }
 SHARED = ("context_source", "contexts", "group", "learning_rate", "reference")
 
