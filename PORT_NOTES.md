@@ -13,7 +13,7 @@ Local branch `port-baselines` (from `origin/anton-dev`). Nothing is pushed. Writ
 | TraFL + across-order variance penalty (`--var-lambda`) | `baselines.order_variance` | unbiased for Var over orders (Monte Carlo vs exact) |
 | `tb` arm = the existing exact trajectory-balance loss (RTB-type) | `src/rl/train.py` | existing tests |
 | Exact distance from the reference: terminal KL both ways, trajectory KL, path KL = KL_traj − KL_term; AR-decoder score and KL | `src/metrics/paths.py`, `train.py` | self-distance 0; state recursion = Monte Carlo; AR law aligned with string order |
-| Transformer + architecture registry + size ablation | `src/transformer.py`, `src/architecture.py` | in progress (separate agent) |
+| Transformer + architecture registry + size ablation (568 to 399k parameters) | `src/transformer.py`, `src/architecture.py`, `models/pretrain/transformer_*` | shapes; parameter counts; bit-exact checkpoints; normalised exact law; forward = torch reference to 4e-6 |
 
 `--arm trafl` with default flags reproduces the pre-port code **bit-for-bit** (6-step run, same seed: every
 logged loss and exact metric identical). Gates were mutation-checked (each fails when its piece is broken).
@@ -38,18 +38,7 @@ logged loss and exact metric identical). Gates were mutation-checked (each fails
 7. **Size ablation:** 4⁸ = 65,536 strings and 5⁸ = 390,625 contexts. The MLPs (k = 1..7) have ≤ 25k parameters;
    the transformer sizes go beyond the context count, to see where a model can store the table.
 
-## Open questions for you
+## Next
 
-- **Second environment (fork).** `main`'s mode-distance reward (R = e^{1−d}, 4 modes) is not in `anton-dev`. It can be
-  added as `reward: "modes"` in a few lines, but on `main` the MLP is pretrained on π itself, so post-training
-  toward p_ref · R would aim at roughly π². Which reference do you want there: Potts-pretrained (as here), a
-  high-temperature π, or something else? Or skip it?
-- Push `port-baselines` to the remote, or open a PR into `anton-dev`? Not done without your word.
-- Pre-stated plan for the first comparison, Potts + TFBind8, from the MLP references k ∈ {3, 5, 7} plus 2–3
-  transformer sizes, 2–3 seeds:
-  - arms: TraFL (32 IID as here; 4 comp as the paper), TraFL + λ = 1 variance penalty, TB, ESPO (κ grid),
-    ESPO-PPO (μ = 8), GRPO, JustGRPO;
-  - reading: reward vs KL(p ‖ p_ref) frontiers, path KL at matched terminal KL, local-maxima coverage, and AR vs
-    random decoder;
-  - prediction from gfn_lab: the per-string arms (TraFL, ESPO) drift in path law more than TB and GRPO, the
-    penalty removes most of that, and 32 IID masks drift more than 4 comp.
+The answers to the first round of questions and the ordered plan with its gates are in `INTEGRATION_PLAN.md`. The
+one open decision is the environment for the realistic reference (plan §1).
