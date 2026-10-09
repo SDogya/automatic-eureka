@@ -1,5 +1,6 @@
 """The transformer denoiser, the architecture registry and exact evaluation of either family."""
 
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -242,6 +243,9 @@ def test_transformer_pretraining_and_ablation_outputs(tmp_path: Path) -> None:
     # The committed Potts dataset (generating one takes longer than the whole test); one epoch.
     config = load_config(Path("configs/potts.json")).model_copy(update={
         "epochs": 1, "eval_every": 1, "transformer_sizes": sizes, "models_dir": tmp_path / "models"})
+    # An existing MLP report (it has a config field Config dropped) is drawn as the reference curve.
+    (config.models_dir / "mlp_1").mkdir(parents=True)
+    shutil.copy("models/pretrain/mlp_1/training.json", config.models_dir / "mlp_1" / "training.json")
     ablation = run_transformer_ablation(config)
     assert [row.tag for row in ablation.rows] == [spec.tag for spec in sizes]
     assert [row.parameter_count for row in ablation.rows] == [

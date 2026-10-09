@@ -1,5 +1,7 @@
 """Size ablations: models/mlp_k/ per MLP hidden width 2^k, models/transformer_<tag>/ per transformer size."""
 
+import json
+
 import matplotlib
 
 matplotlib.use("Agg")
@@ -108,11 +110,15 @@ def plot_transformer_ablation(config: Config, ablation: TransformerAblationRepor
     """KL against parameter count; the MLP runs found in models_dir are drawn for reference."""
     rows = ablation.rows
     figure, axis = plt.subplots(figsize=(8, 4.5))
-    mlp_reports = [TrainingReport.model_validate_json(path.read_text())
-                   for path in sorted(config.models_dir.glob("mlp_*/training.json"))]
-    if mlp_reports:
-        axis.plot([r.parameter_count for r in mlp_reports], [best_and_final(r)[1] for r in mlp_reports],
-                  marker="x", markersize=8, linewidth=1.5, color="gray", label="MLP, best checkpoint")
+    # Raw JSON: the committed MLP reports carry a config field (modes) that Config has since dropped.
+    mlp = []
+    for path in sorted(config.models_dir.glob("mlp_*/training.json")):
+        report = json.loads(path.read_text())
+        mlp.append((report["parameter_count"],
+                    next(m["kl"] for m in report["metrics"] if m["epoch"] == report["best_epoch"])))
+    if mlp:
+        axis.plot([p for p, _ in mlp], [kl for _, kl in mlp], marker="x", markersize=8, linewidth=1.5,
+                  color="gray", label="MLP, best checkpoint")
     axis.plot([row.parameter_count for row in rows], [row.best_kl for row in rows], marker="o",
               markersize=8, linewidth=2, color="tab:blue", label="Transformer, best validation checkpoint")
     axis.plot([row.parameter_count for row in rows], [row.final_kl for row in rows], marker="s",
