@@ -15,6 +15,8 @@ Local branch `port-baselines` (from `origin/anton-dev`). Nothing is pushed. Writ
 | TraFL estimators from the bitseq thread (`--estimator`): split product, pairwise U-statistic, exact mask mean, exact completion likelihood | `src/rl/losses/estimators.py` | exact log p = sum over orders (value and gradient); exact mean = IID limit; U-statistics unbiased, square biased |
 | Entropic PPO (`--arm entppo`): torchgfn's `EntPPOGFlowNet` with RTB's soft reward (log P_ref per step, beta r at exit) | `src/rl/losses/entppo.py` | expected gradient = trajectory-KL gradient (exact); value targets = soft reward-to-go |
 | RSPO (`--arm rspo`, arXiv 2605.10218 Eq. 3.3; lambda 0.01) | `baselines.rspo_loss` | gradient = lambda * grad of 0.5 (delta_hat - A / lambda)^2 |
+| Relative detailed balance / sub-trajectory balance (`--arm db`, `--arm subtb`; the log Z head is the state flow V(s), V(y) = beta r) | `src/rl/losses/flow_balance.py` | one-step residuals telescope to RTB's residual; SubTB -> DB (lambda -> 0) and -> RTB (lambda -> inf) |
+| Kaggle CPU runner: lockfile env remotely, gate tests first, 4 single-thread runs per kernel | `scripts/kaggle_job.py` | smoke kernel: env in 21 s, 34 gate tests, transformer job ran |
 | Exact low-confidence-remasking decoder (LLaDA / Fast-dLLM, T = 0.6) in every evaluation (`llada_*` columns) | `src/metrics/decoders.py` | step law = one-step simulation (catches tempered scoring); terminal law = simulation |
 | Exact distance from the reference: terminal KL both ways, trajectory KL, path KL = KL_traj − KL_term; AR-decoder score and KL | `src/metrics/paths.py`, `train.py` | self-distance 0; state recursion = Monte Carlo; AR law aligned with string order |
 | Transformer + architecture registry + size ablation (568 to 399k parameters) | `src/transformer.py`, `src/architecture.py`, `models/pretrain/transformer_*` | shapes; parameter counts; bit-exact checkpoints; normalised exact law; forward = torch reference to 4e-6 |
@@ -33,7 +35,7 @@ logged loss and exact metric identical). Gates were mutation-checked (each fails
    - **RSPO** is a squared-residual regression in disguise (gradient identity above): TraFL-like, with batch centering
      in place of log Z and beta ~ 1 / lambda.
    - Path targets at the optimum:
-     - c_ref(tau | y): RTB / `tb`, `entppo`;
+     - c_ref(tau | y): RTB / `tb`, `db`, `subtb`, `entppo`;
      - uniform order: a GFlowNet with uniform P_B (not added; can be);
      - not pinned: the per-string objectives (TraFL's surrogate, exact likelihood, RSPO, ESPO's k2).
 

@@ -83,7 +83,7 @@ test suite green, and no step changes an existing number without an equivalence 
 | 5 ✓ | RSPO, after reading its objective | its stated identity |
 | 6 | Environment choice, then a realistic reference | reference report: KL to its data law, concentration, held-out-by-string NLL |
 | 7 ✓ | Analysis adapter + plots | adapter reproduces the `evals.csv` numbers |
-| 8 (grid 1 ✓) | Pre-stated grid, runs, readings | predictions written before running; grid 1 on environment (b): `results/port_grid1/` |
+| 8 (grid 1 ✓, grid 2 running) | Pre-stated grid, runs, readings | predictions written before running; environment (b): `results/port_grid1/` (read), `results/port_grid2/` (64 runs on 2 Kaggle CPU kernels) |
 
 ## 4. Known issues found in the existing code (transformer-port review), and what is done about them
 
