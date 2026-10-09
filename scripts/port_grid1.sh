@@ -3,8 +3,8 @@
 cd "$(dirname "$0")/.."
 export XLA_FLAGS="--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1" JAX_PLATFORMS=cpu
 EVAL="1 2 4 8 16 32 64 128 256 512 1024 2048"
-COMMON="--config configs/potts_tfbind8.json --exponent 5 --only finetune --steps 5000 --save-every 250 --no-plateau-stop --learning-rate 1e-4 --eval-steps $EVAL"
-jobs() {
+export COMMON="--config configs/potts_tfbind8.json --exponent 5 --only finetune --steps 5000 --save-every 250 --no-plateau-stop --learning-rate 1e-4 --eval-steps $EVAL"
+job_list() {
   for seed in 1 2; do
     echo "trafl_iid32     $seed --arm trafl --mask-samples 32"
     echo "trafl_comp4     $seed --arm trafl --mask-scheme comp --mask-samples 4"
@@ -20,4 +20,4 @@ jobs() {
   done
 }
 mkdir -p models/port_grid1/logs
-jobs | xargs -P 6 -L 1 bash -c 'name=$0; seed=$1; shift 2; uv run --no-sync python -m src.rl.sweep $COMMON --seed $seed --output models/port_grid1/$name "$@" > models/port_grid1/logs/${name}_s${seed}.log 2>&1 && echo "done $name s$seed" || echo "FAILED $name s$seed"'
+job_list | xargs -P 6 -L 1 bash -c 'name=$0; seed=$1; shift 2; uv run --no-sync python -m src.rl.sweep $COMMON --seed $seed --output models/port_grid1/$name "$@" > models/port_grid1/logs/${name}_s${seed}.log 2>&1 && echo "done $name s$seed" || echo "FAILED $name s$seed"'
