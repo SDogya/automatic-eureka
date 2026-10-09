@@ -1,0 +1,810 @@
+{
+  "config": {
+    "reward": "potts",
+    "beta": 2.0,
+    "temperature": 1.0,
+    "seed": 42,
+    "samples": 10000,
+    "burn_tv": 0.0001,
+    "correlation_bound": 0.01,
+    "diagnostic_limit": 50000,
+    "mask_probability": 0.5,
+    "epochs": 100,
+    "batch_size": 256,
+    "learning_rate": 0.001,
+    "eval_every": 10,
+    "validation_fraction": 0.1,
+    "eval_batch_size": 8192,
+    "data_dir": "data/potts",
+    "plots_dir": "data/potts",
+    "models_dir": "models/pretrain",
+    "hidden_exponents": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "architecture": {
+      "family": "mlp",
+      "width": 80
+    },
+    "transformer_sizes": [
+      {
+        "family": "transformer",
+        "d_model": 4,
+        "layers": 2,
+        "heads": 2,
+        "ff": 16
+      },
+      {
+        "family": "transformer",
+        "d_model": 8,
+        "layers": 2,
+        "heads": 2,
+        "ff": 32
+      },
+      {
+        "family": "transformer",
+        "d_model": 16,
+        "layers": 2,
+        "heads": 4,
+        "ff": 64
+      },
+      {
+        "family": "transformer",
+        "d_model": 32,
+        "layers": 2,
+        "heads": 4,
+        "ff": 128
+      },
+      {
+        "family": "transformer",
+        "d_model": 64,
+        "layers": 2,
+        "heads": 4,
+        "ff": 256
+      },
+      {
+        "family": "transformer",
+        "d_model": 128,
+        "layers": 2,
+        "heads": 8,
+        "ff": 512
+      }
+    ]
+  },
+  "software": {
+    "python": "3.14.0",
+    "jax": "0.11.2",
+    "jaxlib": "0.11.2",
+    "optax": "0.2.8",
+    "numpy": "2.5.3",
+    "pydantic": "2.13.5",
+    "pyarrow": "25.0.1",
+    "matplotlib": "3.11.2"
+  },
+  "hidden_width": 32,
+  "parameter_count": 26020,
+  "dataset_sha256": "d5cc7d8420a8599d9642676d4ab4cbeca1b12ba7545005a75f4da5719bbe223e",
+  "best_epoch": 90,
+  "metrics": [
+    {
+      "epoch": 0,
+      "training_loss": 7.483269335428874,
+      "validation_loss": 7.40537379456196,
+      "kl": 10.819957686688682,
+      "probability_sum": 1.0000000000000013
+    },
+    {
+      "epoch": 1,
+      "training_loss": 3.9710440932379827,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 2,
+      "training_loss": 2.135386471112569,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 3,
+      "training_loss": 1.7326042059792413,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 4,
+      "training_loss": 1.6174073583814832,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 5,
+      "training_loss": 1.5306043542226155,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 6,
+      "training_loss": 1.5111085313161214,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 7,
+      "training_loss": 1.4552759216096667,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 8,
+      "training_loss": 1.4080366105503506,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 9,
+      "training_loss": 1.3777832380930584,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 10,
+      "training_loss": 1.4290770928064982,
+      "validation_loss": 1.4128882734394235,
+      "kl": 0.2801961017101146,
+      "probability_sum": 1.0000000000000002
+    },
+    {
+      "epoch": 11,
+      "training_loss": 1.392194942686293,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 12,
+      "training_loss": 1.3634470755259196,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 13,
+      "training_loss": 1.3709187184439766,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 14,
+      "training_loss": 1.328711224132114,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 15,
+      "training_loss": 1.3403976340823702,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 16,
+      "training_loss": 1.3601517198350694,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 17,
+      "training_loss": 1.356590843518575,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 18,
+      "training_loss": 1.344645605246226,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 19,
+      "training_loss": 1.2927237686581081,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 20,
+      "training_loss": 1.3373741777208117,
+      "validation_loss": 1.3229944907422055,
+      "kl": 0.1330507112191876,
+      "probability_sum": 0.9999999999999999
+    },
+    {
+      "epoch": 21,
+      "training_loss": 1.323322963396708,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 22,
+      "training_loss": 1.3360598622957864,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 23,
+      "training_loss": 1.2851872027715048,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 24,
+      "training_loss": 1.3241664843029446,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 25,
+      "training_loss": 1.314204386499193,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 26,
+      "training_loss": 1.3200360887315539,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 27,
+      "training_loss": 1.3296686020957098,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 28,
+      "training_loss": 1.3154426703982882,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 29,
+      "training_loss": 1.300596759478251,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 30,
+      "training_loss": 1.2689607342614069,
+      "validation_loss": 1.292027779157479,
+      "kl": 0.1342981947386913,
+      "probability_sum": 1.0000000000000002
+    },
+    {
+      "epoch": 31,
+      "training_loss": 1.291547678788503,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 32,
+      "training_loss": 1.2871889022721184,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 33,
+      "training_loss": 1.2624105344348484,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 34,
+      "training_loss": 1.3344818895128039,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 35,
+      "training_loss": 1.2571272456910876,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 36,
+      "training_loss": 1.302849260489146,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 37,
+      "training_loss": 1.291082321272956,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 38,
+      "training_loss": 1.2954931066301134,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 39,
+      "training_loss": 1.3017995595932006,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 40,
+      "training_loss": 1.2668486476474339,
+      "validation_loss": 1.281130918549088,
+      "kl": 0.11024416842575827,
+      "probability_sum": 0.9999999999999997
+    },
+    {
+      "epoch": 41,
+      "training_loss": 1.2543855884340074,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 42,
+      "training_loss": 1.2832991887198555,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 43,
+      "training_loss": 1.300343841234843,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 44,
+      "training_loss": 1.2960948400497436,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 45,
+      "training_loss": 1.2915160733858744,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 46,
+      "training_loss": 1.2982100424236722,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 47,
+      "training_loss": 1.2400276369518703,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 48,
+      "training_loss": 1.2513136701583862,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 49,
+      "training_loss": 1.2355223809348213,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 50,
+      "training_loss": 1.2834381290011936,
+      "validation_loss": 1.2877145148010818,
+      "kl": 0.11925520043464968,
+      "probability_sum": 1.0
+    },
+    {
+      "epoch": 51,
+      "training_loss": 1.2490455270343357,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 52,
+      "training_loss": 1.2658034023708766,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 53,
+      "training_loss": 1.2619887467490303,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 54,
+      "training_loss": 1.269467160542806,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 55,
+      "training_loss": 1.2466683003107706,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 56,
+      "training_loss": 1.2606645460128785,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 57,
+      "training_loss": 1.279193342950609,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 58,
+      "training_loss": 1.2534160628848605,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 59,
+      "training_loss": 1.2504379460546706,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 60,
+      "training_loss": 1.2736525252660116,
+      "validation_loss": 1.25509083289381,
+      "kl": 0.07090128149172067,
+      "probability_sum": 0.9999999999999998
+    },
+    {
+      "epoch": 61,
+      "training_loss": 1.2384429291089376,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 62,
+      "training_loss": 1.2698506546020507,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 63,
+      "training_loss": 1.2356129924986097,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 64,
+      "training_loss": 1.2550750152799819,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 65,
+      "training_loss": 1.2260402115715874,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 66,
+      "training_loss": 1.2397360004848903,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 67,
+      "training_loss": 1.2706361960305108,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 68,
+      "training_loss": 1.284143265247345,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 69,
+      "training_loss": 1.275213506380717,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 70,
+      "training_loss": 1.2613589503500198,
+      "validation_loss": 1.2552166030981526,
+      "kl": 0.06824218988144172,
+      "probability_sum": 1.0
+    },
+    {
+      "epoch": 71,
+      "training_loss": 1.2322403881284925,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 72,
+      "training_loss": 1.2653251146740383,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 73,
+      "training_loss": 1.2583818453682794,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 74,
+      "training_loss": 1.2434231411616008,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 75,
+      "training_loss": 1.2372958441840278,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 76,
+      "training_loss": 1.2769216639200847,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 77,
+      "training_loss": 1.242315066019694,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 78,
+      "training_loss": 1.219020896381802,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 79,
+      "training_loss": 1.2745459316041734,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 80,
+      "training_loss": 1.227675244861179,
+      "validation_loss": 1.2539457825381815,
+      "kl": 0.08402220692423845,
+      "probability_sum": 1.0
+    },
+    {
+      "epoch": 81,
+      "training_loss": 1.2452175175348918,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 82,
+      "training_loss": 1.2694355446497598,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 83,
+      "training_loss": 1.2355008827845255,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 84,
+      "training_loss": 1.2371796836323208,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 85,
+      "training_loss": 1.2723509900834826,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 86,
+      "training_loss": 1.2452801413006254,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 87,
+      "training_loss": 1.2350858475367228,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 88,
+      "training_loss": 1.2407226385540433,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 89,
+      "training_loss": 1.233800518459744,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 90,
+      "training_loss": 1.2304139085345798,
+      "validation_loss": 1.2427828909581793,
+      "kl": 0.07180381467620972,
+      "probability_sum": 0.9999999999999998
+    },
+    {
+      "epoch": 91,
+      "training_loss": 1.2355143177244399,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 92,
+      "training_loss": 1.2308141242133246,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 93,
+      "training_loss": 1.2536481640073989,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 94,
+      "training_loss": 1.216839137395223,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 95,
+      "training_loss": 1.2855622390641106,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 96,
+      "training_loss": 1.216531899664137,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 97,
+      "training_loss": 1.2100172590679592,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 98,
+      "training_loss": 1.2346995250913833,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 99,
+      "training_loss": 1.2214023968378702,
+      "validation_loss": null,
+      "kl": null,
+      "probability_sum": null
+    },
+    {
+      "epoch": 100,
+      "training_loss": 1.2113801200654772,
+      "validation_loss": 1.2564077666517663,
+      "kl": 0.07391197807708424,
+      "probability_sum": 0.9999999999999998
+    }
+  ],
+  "architecture": {
+    "family": "transformer",
+    "d_model": 32,
+    "layers": 2,
+    "heads": 4,
+    "ff": 128
+  },
+  "wall_seconds": 32.12249537499156
+}

@@ -1,0 +1,82 @@
+{
+  "rows": [
+    {
+      "tag": "d4_l2_h2_f16",
+      "d_model": 4,
+      "layers": 2,
+      "heads": 2,
+      "ff": 16,
+      "parameter_count": 568,
+      "best_epoch": 70,
+      "best_validation_loss": 1.8639914952568415,
+      "best_kl": 0.9661949723915888,
+      "final_kl": 0.9689301196378469,
+      "wall_seconds": 13.23302225000225
+    },
+    {
+      "tag": "d8_l2_h2_f32",
+      "d_model": 8,
+      "layers": 2,
+      "heads": 2,
+      "ff": 32,
+      "parameter_count": 1900,
+      "best_epoch": 90,
+      "best_validation_loss": 1.3763985372608796,
+      "best_kl": 0.20210725524986844,
+      "final_kl": 0.34721480010588346,
+      "wall_seconds": 15.356828124960884
+    },
+    {
+      "tag": "d16_l2_h4_f64",
+      "d_model": 16,
+      "layers": 2,
+      "heads": 4,
+      "ff": 64,
+      "parameter_count": 6868,
+      "best_epoch": 70,
+      "best_validation_loss": 1.2912489575363426,
+      "best_kl": 0.10162094696610835,
+      "final_kl": 0.21128435250128427,
+      "wall_seconds": 21.898080083017703
+    },
+    {
+      "tag": "d32_l2_h4_f128",
+      "d_model": 32,
+      "layers": 2,
+      "heads": 4,
+      "ff": 128,
+      "parameter_count": 26020,
+      "best_epoch": 90,
+      "best_validation_loss": 1.2427828909581793,
+      "best_kl": 0.07180381467620972,
+      "final_kl": 0.07391197807708424,
+      "wall_seconds": 32.12249537499156
+    },
+    {
+      "tag": "d64_l2_h4_f256",
+      "d_model": 64,
+      "layers": 2,
+      "heads": 4,
+      "ff": 256,
+      "parameter_count": 101188,
+      "best_epoch": 90,
+      "best_validation_loss": 1.2396772814476826,
+      "best_kl": 0.07198122705163607,
+      "final_kl": 0.08400572381600033,
+      "wall_seconds": 56.81952254200587
+    },
+    {
+      "tag": "d128_l2_h8_f512",
+      "d_model": 128,
+      "layers": 2,
+      "heads": 8,
+      "ff": 512,
+      "parameter_count": 398980,
+      "best_epoch": 90,
+      "best_validation_loss": 1.2326985563191264,
+      "best_kl": 0.05668499385855495,
+      "final_kl": 0.08583218261009641,
+      "wall_seconds": 125.16719758399995
+    }
+  ]
+}
