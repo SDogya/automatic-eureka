@@ -1,9 +1,12 @@
-"""TraFL training of the masked MLP from random weights or a checkpoint, with exact evaluation."""
+"""Post-training of the masked denoiser from random weights or a checkpoint, with exact evaluation.
+
+arm="trafl" is this repo's TraFL (unchanged defaults); the other arms are the baselines TraFL is compared with
+(losses/baselines.py, gated in tests/test_arms.py) and the exact trajectory-balance loss ("tb", RTB-type)."""
 
 import json
 import time
 from pathlib import Path
-from typing import Literal
+from typing import Literal, NamedTuple
 
 import jax
 import jax.numpy as jnp
@@ -19,8 +22,13 @@ from pydantic import Field
 from ..config import LENGTH, MASK, Config, Record, rng
 from ..data import Target, build_target
 from ..evaluation import Contexts, build_contexts, evaluate
-from ..model import Layer, Params, complete, forward, init_parameters, load_parameters, save_parameters
+from ..model import Layer, Params, forward, init_parameters, load_parameters, save_parameters
+from ..metrics.paths import log_conditionals, path_kl
+from .losses.baselines import ar_token_log_probs, espo_loss, grpo_loss, justgrpo_loss, order_variance
+from .losses.masks import Scheme
 from .losses.trafl import Normalization, Reference, trafl_residuals
+from .losses.trajectory_balance import trajectory_residuals
+from .samplers import complete_ar, complete_uniform
 
 ZParams = tuple[Layer, Layer]
 
@@ -43,6 +51,14 @@ class TraflConfig(Record):
     beta: float = Field(default=1.5, gt=0)
     normalization: Normalization = "paper"
     reference: Literal["initial", "uniform"] = "initial"
+    # arm and its knobs: beta (trafl, tb), kappa (espo, espo_ppo), none (grpo, justgrpo); var_lambda adds TraFL's
+    # explicit across-order variance penalty; ppo_epochs = policy updates per rollout batch (ESPO's mu)
+    arm: Literal["trafl", "tb", "espo", "espo_ppo", "grpo", "justgrpo"] = "trafl"
+    mask_scheme: Scheme = "iid"
+    var_lambda: float = Field(default=0.0, ge=0)
+    kappa: float = Field(default=0.05, ge=0)
+    ppo_epochs: int = Field(default=1, ge=1)
+    eps_clip: float = Field(default=0.2, gt=0)
     stop_on_plateau: bool = True
     plateau_window: int = Field(default=2000, ge=1)
     plateau_patience: int = Field(default=2000, ge=1)
@@ -71,6 +87,14 @@ class EvalMetric(Record):
     tv: float
     expected_score: float
     probability_sum: float
+    kl_to_ref: float = float("nan")          # KL(p_theta || p_ref), terminal, empty prompt
+    kl_from_ref: float = float("nan")        # KL(p_ref || p_theta)
+    kl_traj_ref: float = float("nan")        # KL(P_ref || P_theta) over trajectories
+    kl_path_ref: float = float("nan")        # kl_traj_ref - kl_from_ref = E_{y~p_ref} KL(c_ref(tau|y) || c_theta(tau|y))
+    expected_log_reward: float = float("nan")
+    entropy: float = float("nan")
+    ar_expected_score: float = float("nan")  # the same under the left-to-right decoder (JustGRPO's policy)
+    ar_kl_to_ref: float = float("nan")       # KL(p_AR,theta || p_ref)
 
 
 class TraflReport(Record):
@@ -102,16 +126,40 @@ def tilted_target(target: Target, log_p_reference: np.ndarray, beta: float) -> T
     return target._replace(log_pi=log_pi, pi=np.exp(log_pi))
 
 
+class ReferenceTables(NamedTuple):
+    log_cond: np.ndarray  # log q_ref(a | s, i) for every partial string
+    log_p: np.ndarray     # log p_ref(y), empty prompt
+
+
+def ar_log_probs(forward_fn: object, params: object, full_tokens: np.ndarray, batch: int = 8192) -> np.ndarray:
+    """Exact log p_AR(y) of every full string under the left-to-right decoder from the empty prompt."""
+    empty = jnp.full((1, LENGTH), MASK, dtype=jnp.int32)
+    fn = jax.jit(lambda p, y: ar_token_log_probs(forward_fn, p, jnp.broadcast_to(empty, y.shape), y).values.sum(-1))
+    return np.concatenate([np.asarray(fn(params, jnp.asarray(full_tokens[s:s + batch])), dtype=np.float64)
+                           for s in range(0, len(full_tokens), batch)])
+
+
 def exact_evaluation(step: int, params: Params, contexts: Contexts, target: Target, pi: Target,
-                     scores: np.ndarray, validation: np.ndarray, scratch: Path) -> tuple[EvalMetric, np.ndarray]:
-    """KL etc. against TraFL's target; kl_to_pi is against the reward distribution pi itself."""
-    result = evaluate(params, contexts, target, validation, 0.5, 8192, scratch)
+                     scores: np.ndarray, validation: np.ndarray, scratch: Path,
+                     forward_fn: object = forward, ref: "ReferenceTables | None" = None) -> tuple[EvalMetric, np.ndarray]:
+    """KL etc. against TraFL's target; kl_to_pi is against the reward distribution pi itself. With ref: terminal
+    and path distances from the reference, and the left-to-right decoder's score and distance."""
+    result = evaluate(params, contexts, target, validation, 0.5, 8192, scratch, forward=forward_fn)
     model = np.exp(result.log_probs)
+    extra = {}
+    if ref is not None:
+        paths = path_kl(contexts, ref.log_cond, log_conditionals(forward_fn, params, contexts))
+        log_ar = ar_log_probs(forward_fn, params, pi.tokens)
+        extra = dict(kl_to_ref=float(model @ (result.log_probs - ref.log_p)), kl_from_ref=paths.kl_term,
+                     kl_traj_ref=paths.kl_traj, kl_path_ref=paths.kl_path,
+                     expected_log_reward=float(model @ pi.log_reward), entropy=float(-model @ result.log_probs),
+                     ar_expected_score=float(np.exp(log_ar) @ scores),
+                     ar_kl_to_ref=float(np.exp(log_ar) @ (log_ar - ref.log_p)))
     return EvalMetric(
         step=step, kl=result.kl, kl_to_pi=float(pi.pi @ (pi.log_pi - result.log_probs)),
         reverse_kl=float(model @ (result.log_probs - target.log_pi)),
         tv=float(np.abs(model - target.pi).sum() / 2),
-        expected_score=float(model @ scores), probability_sum=result.probability_sum,
+        expected_score=float(model @ scores), probability_sum=result.probability_sum, **extra,
     ), result.log_probs
 
 
@@ -160,8 +208,9 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
         initial = load_parameters(run_dir / "step_00000.npz")
         params = (load_parameters(run_dir / f"step_{first:05d}.npz"), load_log_z(run_dir / f"log_z_step_{first:05d}.npz"))
         key = jax.random.fold_in(key, first)
-    policy = params[0]
     reference = Reference(forward, initial) if trafl.reference == "initial" else None
+    if reference is None and (trafl.arm in ("espo", "espo_ppo") or trafl.var_lambda):
+        raise ValueError(f"arm {trafl.arm} with var_lambda={trafl.var_lambda} needs reference='initial'")
     def rate(peak: float) -> optax.Schedule:
         if trafl.schedule == "constant":
             return optax.constant_schedule(peak)
@@ -180,16 +229,20 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
     powers = jnp.asarray(4 ** np.arange(LENGTH - 1, -1, -1, dtype=np.int32))
     contexts_all = build_contexts()
     validation = pi.tokens[rng(trafl.seed, 7).choice(len(pi.pi), 256, p=pi.pi)]
+    ref_tables = None
     if reference is not None:
         _, log_p_initial = exact_evaluation(0, initial, contexts_all, pi, pi, scores, validation, output_dir)
         target = tilted_target(pi, log_p_initial, trafl.beta)
+        ref_tables = ReferenceTables(log_conditionals(forward, initial, contexts_all), log_p_initial)
     write_settings(output_dir, name, init, width, config, trafl, start, first)
     log(f"[{name}] init={init} width={width} start={start} reference={trafl.reference} "
         f"H(target)={float(-target.pi @ target.log_pi):.3f} E_target[y]={float(target.pi @ scores):.4f} -> {output_dir}")
 
+    sampler = complete_ar if trafl.arm == "justgrpo" else complete_uniform
+
     @jax.jit
-    def train_step(params: tuple[Params, ZParams], state: optax.OptState, key: jax.Array):
-        base_key, mask_key, fill_key, loss_key = jax.random.split(key, 4)
+    def rollout(policy: Params, base_key: jax.Array, mask_key: jax.Array, fill_key: jax.Array):
+        """Prompts (same distribution for every arm) and G completions each from the arm's own sampler."""
         shape = (trafl.contexts, LENGTH)
         if trafl.context_source == "uniform":
             count_key, order_key = jax.random.split(mask_key)
@@ -198,22 +251,50 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
             rank = jnp.argsort(jnp.argsort(jax.random.uniform(order_key, shape), axis=1), axis=1)
             hide = rank < hidden_count
         else:
-            base, _ = complete(params[0], jnp.full(shape, MASK, dtype=jnp.int32), base_key)
+            base, _ = sampler(forward, policy, jnp.full(shape, MASK, dtype=jnp.int32), base_key)
             hide = jax.random.bernoulli(mask_key, trafl.context_mask_probability, shape)
             hide = jnp.where(hide.any(axis=1, keepdims=True), hide, True)
         contexts = jnp.where(hide, MASK, base)
         repeated = jnp.repeat(contexts, trafl.group, axis=0)
-        completions = complete(params[0], repeated, fill_key)[0].reshape(trafl.contexts, trafl.group, LENGTH)
+        completions, orders = sampler(forward, policy, repeated, fill_key)
+        shape3 = (trafl.contexts, trafl.group, LENGTH)
+        return contexts, completions.reshape(shape3), orders.reshape(shape3), hide.sum(axis=1)
+
+    @jax.jit
+    def update(params: tuple[Params, ZParams], state: optax.OptState, batch: tuple, key: jax.Array, old: Params):
+        contexts, completions, orders, hidden = batch
         ids = completions @ powers
         rewards = log_reward[ids]
-        hidden = hide.sum(axis=1)
-        beta = trafl.beta / hidden  # 1/l surrogate is log p / u, so beta / u keeps the target exp(beta r)
+        loss_key, var_key = key, jax.random.fold_in(key, 7)  # loss_key as before the port: TraFL runs reproduce
 
         def loss_fn(p: tuple[Params, ZParams]):
-            delta = trafl_residuals(p, forward, log_z_forward, contexts, completions, rewards,
-                                    loss_key, beta, reference=reference, samples=trafl.mask_samples,
-                                    normalization=trafl.normalization)
-            return jnp.mean(delta**2), delta
+            zero = jnp.zeros(rewards.shape)
+            if trafl.arm == "trafl":
+                beta = trafl.beta / hidden  # 1/l surrogate is log p / u, so beta / u keeps the target exp(beta r)
+                delta = trafl_residuals(p, forward, log_z_forward, contexts, completions, rewards, loss_key, beta,
+                                        reference=reference, samples=trafl.mask_samples,
+                                        normalization=trafl.normalization, scheme=trafl.mask_scheme)
+                loss = jnp.mean(delta**2)
+            elif trafl.arm == "tb":  # exact log p(tau) is extensive: beta unscaled
+                delta = trajectory_residuals(p, forward, log_z_forward, contexts, completions, orders, rewards,
+                                             trafl.beta, reference=reference)
+                loss = jnp.mean(delta**2)
+            elif trafl.arm in ("espo", "espo_ppo"):
+                delta = zero
+                loss = espo_loss(p[0], forward, contexts, completions, rewards, loss_key, kappa=trafl.kappa,
+                                 reference=reference, old=old if trafl.arm == "espo_ppo" else None,
+                                 samples=trafl.mask_samples, scheme=trafl.mask_scheme, eps_clip=trafl.eps_clip)
+            elif trafl.arm == "grpo":
+                delta = zero
+                loss = grpo_loss(p[0], forward, contexts, completions, orders, rewards)
+            else:
+                delta = zero
+                loss = justgrpo_loss(p[0], forward, contexts, completions, rewards,
+                                     old=old if trafl.ppo_epochs > 1 else None, eps_clip=trafl.eps_clip)
+            if trafl.var_lambda:
+                loss = loss + trafl.var_lambda * jnp.mean(order_variance(p[0], forward, reference, contexts,
+                                                                         completions, var_key))
+            return loss, delta
 
         (loss, delta), grads = jax.value_and_grad(loss_fn, has_aux=True)(params)
         updates, state = optimizer.update(grads, state, params)
@@ -222,6 +303,16 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
                  "rollout_score": score_table[ids].mean(), "hidden_mean": hidden.mean(),
                  "grad_norm": optax.global_norm(grads[0])}
         return optax.apply_updates(params, updates), state, stats
+
+    def train_step(params: tuple[Params, ZParams], state: optax.OptState, key: jax.Array):
+        """One rollout batch, then ppo_epochs updates on it against the policy that sampled it."""
+        base_key, mask_key, fill_key, loss_key = jax.random.split(key, 4)  # the pre-port split
+        old = params[0]
+        batch = rollout(old, base_key, mask_key, fill_key)
+        for epoch in range(trafl.ppo_epochs):
+            update_key = loss_key if epoch == 0 else jax.random.fold_in(loss_key, epoch)
+            params, state, stats = update(params, state, batch, update_key, old)
+        return params, state, stats
 
     steps: list[StepMetric] = []
     evaluations: list[EvalMetric] = []
@@ -234,7 +325,8 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
         np.savez(output_dir / f"log_z_step_{step:05d}.npz",
                  **{f"{n}{i}": np.asarray(a) for i, layer in enumerate(params[1]) for n, a in zip("wb", layer)})
         began = time.time()
-        metric, _ = exact_evaluation(step, params[0], contexts_all, target, pi, scores, validation, output_dir)
+        metric, _ = exact_evaluation(step, params[0], contexts_all, target, pi, scores, validation, output_dir,
+                                     ref=ref_tables)
         evaluations.append(metric)
         eval_log.write(metric.model_dump())
         plot_curves(name, steps, evaluations, output_dir / "curves.png")
@@ -290,7 +382,7 @@ def plot_curves(name: str, steps: list[StepMetric], evals: list[EvalMetric], pat
         smooth = np.convolve(loss, np.ones(window) / window, mode="valid")
         axes[0, 0].plot(x, loss, color="tab:gray", alpha=0.3, linewidth=0.8, label="per step")
         axes[0, 0].plot(x[window - 1:], smooth, color="tab:blue", linewidth=2, label=f"mean of {window} steps")
-        axes[0, 0].set(yscale="log", title="TraFL loss")
+        axes[0, 0].set(yscale="log" if loss.min() > 0 else "linear", title="loss")
         axes[0, 0].legend(fontsize=8)
         axes[0, 1].plot(x, [m.delta_abs for m in steps], linewidth=0.8, label="mean |delta|")
         axes[0, 1].plot(x, [m.delta_mean for m in steps], linewidth=0.8, label="mean delta")

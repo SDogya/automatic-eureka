@@ -30,6 +30,12 @@ def main() -> None:
     parser.add_argument("--plateau-patience", type=int, default=2000)
     parser.add_argument("--no-plateau-stop", dest="stop_on_plateau", action="store_false")
     parser.add_argument("--only", choices=("finetune", "random_init"), help="Train one start only")
+    parser.add_argument("--arm", choices=("trafl", "tb", "espo", "espo_ppo", "grpo", "justgrpo"), default="trafl")
+    parser.add_argument("--mask-scheme", choices=("iid", "comp"), default="iid")
+    parser.add_argument("--var-lambda", type=float, default=0.0, help="TraFL + across-order variance penalty")
+    parser.add_argument("--kappa", type=float, default=0.05, help="ESPO k2 coefficient")
+    parser.add_argument("--ppo-epochs", type=int, default=1, help="updates per rollout batch (ESPO's mu)")
+    parser.add_argument("--eps-clip", type=float, default=0.2)
     parser.add_argument("--resume-from", type=Path, help="Folder with seed_s/<name>_k runs to continue")
     parser.add_argument("--resume-step", type=int)
     args = parser.parse_args()
@@ -39,7 +45,9 @@ def main() -> None:
                         learning_rate=args.learning_rate, stop_on_plateau=args.stop_on_plateau,
                         beta=args.beta, mask_samples=args.mask_samples,
                         plateau_window=args.plateau_window, plateau_patience=args.plateau_patience,
-                        context_source=args.context_source)
+                        context_source=args.context_source, arm=args.arm, mask_scheme=args.mask_scheme,
+                        var_lambda=args.var_lambda, kappa=args.kappa, ppo_epochs=args.ppo_epochs,
+                        eps_clip=args.eps_clip)
     root = args.output / f"seed_{args.seed}"
     log = LogFn(root / f"train_k{args.exponent}.log")
     scores = tfbind8_scores()

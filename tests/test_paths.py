@@ -50,3 +50,22 @@ def test_trajectory_kl_matches_monte_carlo(tables) -> None:
     diff = np.asarray(log_p_trajectory(forward, REF, empty, ys, orders) - log_p_trajectory(forward, POL, empty, ys, orders),
                       dtype=np.float64)
     assert abs(diff.mean() - exact) < 4 * diff.std() / np.sqrt(n)
+
+
+def test_ar_exact_law_is_normalised_and_aligned_with_string_order() -> None:
+    """For a context-free denoiser the left-to-right law equals the random-order law string by string, so the
+    exact AR evaluator and the joint recursion index strings identically."""
+    from src.data import enumerate_tokens
+    from src.rl.train import ar_log_probs
+    table = jax.random.normal(jax.random.key(9), (LENGTH, 4))
+
+    def fixed(_: object, tokens: jax.Array) -> jax.Array:
+        return jnp.broadcast_to(table, (*tokens.shape, 4))
+
+    contexts = build_contexts()
+    full = enumerate_tokens(4, LENGTH)
+    log_ar = ar_log_probs(fixed, None, full)
+    np.testing.assert_allclose(np.exp(log_ar).sum(), 1.0, atol=1e-5)
+    np.testing.assert_allclose(log_ar, joint_log_probs(contexts, log_conditionals(fixed, None, contexts)), atol=1e-4)
+    mlp = ar_log_probs(forward, POL, full)
+    np.testing.assert_allclose(np.exp(mlp).sum(), 1.0, atol=1e-4)
