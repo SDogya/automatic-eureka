@@ -29,6 +29,7 @@ from ..model import Layer, Params, forward
 from ..metrics.decoders import proposal_terminal_log_probs
 from ..metrics.paths import log_conditionals, path_kl
 from .losses.baselines import ar_token_log_probs, espo_loss, grpo_loss, justgrpo_loss, order_variance
+from .losses.entppo import entppo_loss
 from .losses.estimators import Estimator, residual_loss
 from .losses.masks import Scheme
 from .losses.trafl import Normalization, Reference, trafl_residuals
@@ -58,13 +59,14 @@ class TraflConfig(Record):
     reference: Literal["initial", "uniform"] = "initial"
     # arm and its knobs: beta (trafl, tb), kappa (espo, espo_ppo), none (grpo, justgrpo); var_lambda adds TraFL's
     # explicit across-order variance penalty; ppo_epochs = policy updates per rollout batch (ESPO's mu)
-    arm: Literal["trafl", "tb", "espo", "espo_ppo", "grpo", "justgrpo"] = "trafl"
+    arm: Literal["trafl", "tb", "espo", "espo_ppo", "grpo", "justgrpo", "entppo"] = "trafl"
     mask_scheme: Scheme = "iid"
     estimator: Estimator = "square"  # trafl only: square (this repo), split / pairwise (U-statistics), exact_masks, exact_lik
     var_lambda: float = Field(default=0.0, ge=0)
     kappa: float = Field(default=0.05, ge=0)
     ppo_epochs: int = Field(default=1, ge=1)
     eps_clip: float = Field(default=0.2, gt=0)
+    gae_lambda: float = Field(default=0.7, ge=0, le=1)  # entppo: GAE lambda (paper 0.7); the log Z head is its V(s)
     stop_on_plateau: bool = True
     plateau_window: int = Field(default=2000, ge=1)
     plateau_patience: int = Field(default=2000, ge=1)
@@ -240,7 +242,8 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
         key = jax.random.fold_in(key, first)
     forward = arch.forward  # noqa: F811  (local: every closure below uses the run's architecture)
     reference = Reference(forward, initial) if trafl.reference == "initial" else None
-    if reference is None and (trafl.arm in ("espo", "espo_ppo") or trafl.var_lambda or trafl.estimator != "square"):
+    if reference is None and (trafl.arm in ("espo", "espo_ppo", "entppo") or trafl.var_lambda
+                              or trafl.estimator != "square"):
         raise ValueError(f"arm {trafl.arm} with var_lambda={trafl.var_lambda} needs reference='initial'")
     def rate(peak: float) -> optax.Schedule:
         if trafl.schedule == "constant":
@@ -295,7 +298,8 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
         return contexts, completions.reshape(shape3), orders.reshape(shape3), hide.sum(axis=1)
 
     @jax.jit
-    def update(params: tuple[Params, ZParams], state: optax.OptState, batch: tuple, key: jax.Array, old: Params):
+    def update(params: tuple[Params, ZParams], state: optax.OptState, batch: tuple, key: jax.Array,
+               old: tuple[Params, ZParams]):
         contexts, completions, orders, hidden = batch
         ids = completions @ powers
         rewards = log_reward[ids]
@@ -322,15 +326,20 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
             elif trafl.arm in ("espo", "espo_ppo"):
                 delta = zero
                 loss = espo_loss(p[0], forward, contexts, completions, rewards, loss_key, kappa=trafl.kappa,
-                                 reference=reference, old=old if trafl.arm == "espo_ppo" else None,
+                                 reference=reference, old=old[0] if trafl.arm == "espo_ppo" else None,
                                  samples=trafl.mask_samples, scheme=trafl.mask_scheme, eps_clip=trafl.eps_clip)
             elif trafl.arm == "grpo":
                 delta = zero
                 loss = grpo_loss(p[0], forward, contexts, completions, orders, rewards)
-            else:
+            elif trafl.arm == "justgrpo":
                 delta = zero
                 loss = justgrpo_loss(p[0], forward, contexts, completions, rewards,
-                                     old=old if trafl.ppo_epochs > 1 else None, eps_clip=trafl.eps_clip)
+                                     old=old[0] if trafl.ppo_epochs > 1 else None, eps_clip=trafl.eps_clip)
+            else:  # entppo: policy + soft value (the log Z head evaluated on every state)
+                delta = zero
+                loss, _ = entppo_loss(p[0], p[1], forward, log_z_forward, reference, contexts, completions, orders,
+                                      rewards, trafl.beta, old=old, gae_lambda=trafl.gae_lambda,
+                                      eps_clip=trafl.eps_clip)
             if trafl.var_lambda:
                 loss = loss + trafl.var_lambda * jnp.mean(order_variance(p[0], forward, reference, contexts,
                                                                          completions, var_key))
@@ -347,8 +356,8 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
     def train_step(params: tuple[Params, ZParams], state: optax.OptState, key: jax.Array):
         """One rollout batch, then ppo_epochs updates on it against the policy that sampled it."""
         base_key, mask_key, fill_key, loss_key = jax.random.split(key, 4)  # the pre-port split
-        old = params[0]
-        batch = rollout(old, base_key, mask_key, fill_key)
+        old = params
+        batch = rollout(old[0], base_key, mask_key, fill_key)
         for epoch in range(trafl.ppo_epochs):
             update_key = loss_key if epoch == 0 else jax.random.fold_in(loss_key, epoch)
             params, state, stats = update(params, state, batch, update_key, old)

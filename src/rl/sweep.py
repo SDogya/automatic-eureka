@@ -32,7 +32,9 @@ def main() -> None:
     parser.add_argument("--plateau-patience", type=int, default=2000)
     parser.add_argument("--no-plateau-stop", dest="stop_on_plateau", action="store_false")
     parser.add_argument("--only", choices=("finetune", "random_init"), help="Train one start only")
-    parser.add_argument("--arm", choices=("trafl", "tb", "espo", "espo_ppo", "grpo", "justgrpo"), default="trafl")
+    parser.add_argument("--arm", choices=("trafl", "tb", "espo", "espo_ppo", "grpo", "justgrpo", "entppo"),
+                        default="trafl")
+    parser.add_argument("--gae-lambda", type=float, default=0.7, help="entppo GAE lambda")
     parser.add_argument("--mask-scheme", choices=("iid", "comp"), default="iid")
     parser.add_argument("--var-lambda", type=float, default=0.0, help="TraFL + across-order variance penalty")
     parser.add_argument("--estimator", choices=("square", "split", "pairwise", "exact_masks", "exact_lik"),
@@ -51,7 +53,7 @@ def main() -> None:
                         plateau_window=args.plateau_window, plateau_patience=args.plateau_patience,
                         context_source=args.context_source, arm=args.arm, mask_scheme=args.mask_scheme,
                         var_lambda=args.var_lambda, estimator=args.estimator, kappa=args.kappa, ppo_epochs=args.ppo_epochs,
-                        eps_clip=args.eps_clip)
+                        eps_clip=args.eps_clip, gae_lambda=args.gae_lambda)
     root = args.output / f"seed_{args.seed}"
     log = LogFn(root / f"train_k{args.exponent}.log")
     scores = tfbind8_scores()
