@@ -55,6 +55,16 @@ logged loss and exact metric identical). Gates were mutation-checked (each fails
 7. **Size ablation:** 4⁸ = 65,536 strings and 5⁸ = 390,625 contexts. The MLPs (k = 1..7) have ≤ 25k parameters;
    the transformer sizes go beyond the context count, to see where a model can store the table.
 
+## Pipeline facts from an 8-arm, 300-step pilot (setup facts, not results)
+
+- **Grid design:** at their learning rate (1e-3, 256 prompts × 5) every arm passes terminal KL ≈ 3 by update 50.
+  Matched comparisons at KL 0.1–1 need `--eval-steps 1 2 4 8 16 32 64` and/or a lower learning rate.
+- **Decoder:** the low-confidence-remasking decoder at T = 0.6 collapses to about one string after post-training
+  (entropy 0.001–0.015 nats, from 0.72 at the reference), while the random-order sampler keeps 0.5–1.3 nats. Read
+  diversity per decoder.
+- **Analysis:** `python -m src.analysis.report --root <runs> --out <dir>` writes the matched / window tables and
+  four figures. Colour follows the arm in a fixed order (validated palette); line style marks the configuration.
+
 ## Next
 
 The answers to the first round of questions and the ordered plan with its gates are in `INTEGRATION_PLAN.md`. The

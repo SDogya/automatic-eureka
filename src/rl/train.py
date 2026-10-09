@@ -69,6 +69,7 @@ class TraflConfig(Record):
     gae_lambda: float = Field(default=0.7, ge=0, le=1)  # entppo: GAE lambda (paper 0.7); the log Z head is its V(s)
     rspo_lambda: float = Field(default=0.01, ge=0)      # rspo: feedback coefficient (paper 0.01); target A / lambda
     advantage_std: bool = True                          # rspo: std-normalise the group advantage (optional in paper)
+    eval_steps: tuple[int, ...] = ()  # extra exact evaluations (e.g. log-spaced early), besides every save_every
     stop_on_plateau: bool = True
     plateau_window: int = Field(default=2000, ge=1)
     plateau_patience: int = Field(default=2000, ge=1)
@@ -195,12 +196,12 @@ def load_log_z(path: Path) -> ZParams:
 
 
 def write_settings(output_dir: Path, name: str, init: str, width: int, config: Config,
-                   trafl: TraflConfig, start: Path | None, first: int) -> None:
+                   trafl: TraflConfig, start: Path | None, first: int, architecture: dict | None = None) -> None:
     """settings.json: the run identity plus one segment per (re)start of training."""
     path = output_dir / "settings.json"
     settings = json.loads(path.read_text()) if path.exists() else {
         "name": name, "init": init, "hidden_width": width, "start": None if start is None else str(start),
-        "config": config.model_dump(mode="json"), "segments": []}
+        "architecture": architecture, "config": config.model_dump(mode="json"), "segments": []}
     settings["segments"].append({"first_step": first, "trafl": trafl.model_dump(mode="json"),
                                  **({"note": "resumed; Adam moments restarted"} if first else {})})
     path.write_text(json.dumps(settings, indent=2) + "\n")
@@ -273,7 +274,7 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
         ref_cond = log_conditionals(forward, initial, contexts_all)
         ref_tables = ReferenceTables(ref_cond, log_p_initial,
                                      proposal_terminal_log_probs(contexts_all, ref_cond, DECODER_T))
-    write_settings(output_dir, name, init, width, config, trafl, start, first)
+    write_settings(output_dir, name, init, width, config, trafl, start, first, arch.spec.model_dump(mode="json"))
     log(f"[{name}] init={init} architecture={arch.spec.model_dump()} start={start} reference={trafl.reference} "
         f"H(target)={float(-target.pi @ target.log_pi):.3f} E_target[y]={float(target.pi @ scores):.4f} -> {output_dir}")
 
@@ -404,7 +405,7 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
         steps.append(metric)
         step_log.write(metric.model_dump())
         stop = trafl.stop_on_plateau and step % trafl.save_every == 0 and plateaued(steps, trafl)
-        if step % trafl.save_every == 0 or step == first + trafl.steps:
+        if step % trafl.save_every == 0 or step == first + trafl.steps or step in trafl.eval_steps:
             checkpoint(step)
         if stop:
             log(f"[{name}] loss plateau at step {step}: mean of last {trafl.plateau_window} steps improved "

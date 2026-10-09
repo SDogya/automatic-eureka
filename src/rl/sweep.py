@@ -35,6 +35,8 @@ def main() -> None:
     parser.add_argument("--arm", choices=("trafl", "tb", "espo", "espo_ppo", "grpo", "justgrpo", "entppo", "rspo"),
                         default="trafl")
     parser.add_argument("--gae-lambda", type=float, default=0.7, help="entppo GAE lambda")
+    parser.add_argument("--eval-steps", type=int, nargs="*", default=[],
+                        help="extra exact evaluations, e.g. 1 2 4 8 16 32 64 128 (matched comparisons need early points)")
     parser.add_argument("--rspo-lambda", type=float, default=0.01, help="rspo feedback coefficient")
     parser.add_argument("--no-advantage-std", dest="advantage_std", action="store_false",
                         help="rspo: centred instead of std-normalised advantages")
@@ -57,7 +59,7 @@ def main() -> None:
                         context_source=args.context_source, arm=args.arm, mask_scheme=args.mask_scheme,
                         var_lambda=args.var_lambda, estimator=args.estimator, kappa=args.kappa, ppo_epochs=args.ppo_epochs,
                         eps_clip=args.eps_clip, gae_lambda=args.gae_lambda, rspo_lambda=args.rspo_lambda,
-                        advantage_std=args.advantage_std)
+                        advantage_std=args.advantage_std, eval_steps=tuple(args.eval_steps))
     root = args.output / f"seed_{args.seed}"
     log = LogFn(root / f"train_k{args.exponent}.log")
     scores = tfbind8_scores()
