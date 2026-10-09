@@ -3,7 +3,7 @@
 from importlib.metadata import version
 from pathlib import Path
 from platform import python_version
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
 import numpy as np
 from numpy.typing import NDArray
@@ -32,6 +32,47 @@ class Record(BaseModel):
         path.write_text(self.model_dump_json(indent=2) + "\n")
 
 
+class MLPSpec(Record):
+    """Masked MLP 40 -> width -> width -> 32 (see model.py)."""
+
+    family: Literal["mlp"] = "mlp"
+    width: int = Field(default=80, ge=1)  # equals model.DEFAULT_WIDTH, checked in tests
+
+    @property
+    def tag(self) -> str:
+        return f"w{self.width}"
+
+
+class TransformerSpec(Record):
+    """Bidirectional pre-norm transformer denoiser (see transformer.py)."""
+
+    family: Literal["transformer"] = "transformer"
+    d_model: int = Field(ge=1)
+    layers: int = Field(ge=1)
+    heads: int = Field(ge=1)
+    ff: int = Field(ge=1)
+
+    @model_validator(mode="after")
+    def check_heads(self) -> Self:
+        if self.d_model % self.heads:
+            raise ValueError("d_model must be divisible by heads")
+        return self
+
+    @property
+    def tag(self) -> str:
+        return f"d{self.d_model}_l{self.layers}_h{self.heads}_f{self.ff}"
+
+
+ArchitectureSpec = Annotated[MLPSpec | TransformerSpec, Field(discriminator="family")]
+
+# Transformer size ablation: depth 2, ff = 4 d, d = 2^2..2^7 -> 568 .. 398,980 parameters, set
+# against the MLP widths 2^1..2^7 (184 .. 25,888 parameters).
+TRANSFORMER_SIZES = tuple(
+    TransformerSpec(d_model=d, layers=2, heads=heads, ff=4 * d)
+    for d, heads in ((4, 2), (8, 2), (16, 4), (32, 4), (64, 4), (128, 8))
+)
+
+
 class Config(Record):
     reward: Literal["potts", "potts_tfbind8"] = "potts"
     beta: float = Field(default=1.0, gt=0, allow_inf_nan=False)
@@ -52,11 +93,15 @@ class Config(Record):
     plots_dir: Path = Path("plots")
     models_dir: Path = Path("models")
     hidden_exponents: tuple[int, ...] = (1, 2, 3, 4, 5, 6, 7)
+    architecture: ArchitectureSpec = MLPSpec()
+    transformer_sizes: tuple[TransformerSpec, ...] = TRANSFORMER_SIZES
 
     @model_validator(mode="after")
     def check_split(self) -> Self:
         if not self.hidden_exponents or min(self.hidden_exponents) < 1:
             raise ValueError("Hidden width exponents must be positive")
+        if not self.transformer_sizes or len({s.tag for s in self.transformer_sizes}) != len(self.transformer_sizes):
+            raise ValueError("Transformer sizes must be nonempty and distinct")
         if not 1 <= round(self.samples * self.validation_fraction) < self.samples:
             raise ValueError("Both training and validation subsets must be nonempty")
         return self
@@ -108,6 +153,10 @@ class TrainingReport(Record):
     dataset_sha256: str
     best_epoch: int
     metrics: list[Metric]
+    # Added after the MLP ablation: absent (None) in older reports. hidden_width is the MLP width
+    # or the transformer d_model; wall_seconds is the training wall time including evaluations.
+    architecture: ArchitectureSpec | None = None
+    wall_seconds: float | None = None
 
 
 class TokenBatch(BaseModel):

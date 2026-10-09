@@ -1,4 +1,8 @@
-"""Pretraining CLI: python -m src {generate,train,run,ablation} --config configs/potts.json."""
+"""Pretraining CLI: python -m src {generate,train,run,ablation} --config configs/potts.json.
+
+`train` and `run` use config.architecture (default: the MLP); `ablation` runs the MLP width
+ablation, or with --family transformer the transformer size ablation.
+"""
 
 import argparse
 import os
@@ -11,6 +15,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("run", "generate", "train", "ablation"))
     parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--family", choices=("mlp", "transformer"), default="mlp",
+                        help="Architecture family of the ablation command")
     parser.add_argument("--overwrite", action="store_true", help="Replace existing results")
     args = parser.parse_args()
     config = load_config(args.config)
@@ -23,7 +29,14 @@ def main() -> None:
             print("Reusing validated dataset", flush=True)
         else:
             generate(config, overwrite=args.overwrite)
-    if args.command == "ablation":
+    if args.command == "ablation" and args.family == "transformer":
+        from .ablation import run_transformer_ablation
+
+        for size in run_transformer_ablation(config, overwrite=args.overwrite).rows:
+            print(f"transformer_{size.tag}: params={size.parameter_count}, "
+                  f"best KL={size.best_kl:.6f}, final KL={size.final_kl:.6f}, "
+                  f"{size.wall_seconds:.0f} s", flush=True)
+    elif args.command == "ablation":
         from .ablation import run_ablation
 
         for row in run_ablation(config, overwrite=args.overwrite).rows:

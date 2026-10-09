@@ -48,11 +48,15 @@ def forward(params: Params, tokens: jax.Array) -> jax.Array:
     return logits.reshape((*tokens.shape[:-1], LENGTH, len(ALPHABET)))
 
 
-def masked_loss(params: Params, tokens: jax.Array, mask: jax.Array) -> jax.Array:
-    logits = forward(params, jnp.where(mask, MASK, tokens))
+def masked_nll(logits: jax.Array, tokens: jax.Array, mask: jax.Array) -> jax.Array:
+    """Mean over the batch of the summed negative log-likelihood at the masked positions."""
     log_probs = jax.nn.log_softmax(logits, axis=-1)
     nll = -jnp.take_along_axis(log_probs, tokens[..., None], axis=-1)[..., 0]
     return jnp.mean(jnp.sum(jnp.where(mask, nll, 0), axis=-1))
+
+
+def masked_loss(params: Params, tokens: jax.Array, mask: jax.Array) -> jax.Array:
+    return masked_nll(forward(params, jnp.where(mask, MASK, tokens)), tokens, mask)
 
 
 def parameter_count(params: Params) -> int:

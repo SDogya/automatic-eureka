@@ -1,17 +1,14 @@
 """Exact random-order joint probabilities and expected masked validation NLL."""
 
+from collections.abc import Callable
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import TYPE_CHECKING, NamedTuple
+from typing import Any, NamedTuple
 
 import numpy as np
 
 from .config import LENGTH, MASK, FloatArray, IntArray
 from .data import Target, enumerate_tokens
-
-if TYPE_CHECKING:
-    from .model import Params
-
 
 class Contexts(NamedTuple):
     tokens: IntArray
@@ -124,18 +121,21 @@ class Evaluation(NamedTuple):
 
 
 def evaluate(
-    params: "Params",
+    params: Any,
     contexts: Contexts,
     target: Target,
     validation: IntArray,
     mask_probability: float,
     batch_size: int,
     scratch_dir: Path = Path(".scratch"),
+    forward: Callable[[Any, Any], Any] | None = None,
 ) -> Evaluation:
+    """Exact evaluation of any denoiser; forward(params, tokens) -> logits, default the MLP."""
     import jax
     import jax.numpy as jnp
 
-    from .model import forward
+    if forward is None:
+        from .model import forward
 
     predict = jax.jit(forward)
     scratch_dir.mkdir(parents=True, exist_ok=True)
