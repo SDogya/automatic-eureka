@@ -1,0 +1,17 @@
+{
+  "reward": "potts_tfbind8",
+  "beta": 3.5,
+  "seed": 42,
+  "data_dir": "data/tfbind8",
+  "plots_dir": "data/tfbind8",
+  "models_dir": "models/trafl",
+  "hidden_exponents": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ]
+}

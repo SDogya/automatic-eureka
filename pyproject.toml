@@ -1,7 +1,7 @@
 [project]
-name = "genome8"
+name = "trafl-kek"
 version = "0.1.0"
-description = "Metropolis–Hastings and a masked JAX MLP on eight DNA symbols"
+description = "Exact study of TraFL trajectory-balance post-training on length-8 DNA (Potts + TFBind8)"
 requires-python = ">=3.14,<3.15"
 dependencies = [
     "jax",

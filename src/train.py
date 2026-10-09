@@ -1,5 +1,7 @@
 """Reproducible masked-NLL training with exact periodic evaluation."""
 
+from pathlib import Path
+
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -9,7 +11,9 @@ from .config import Config, Metric, TrainingReport, rng, software_versions
 from .data import build_target, load_dataset, save_model_distribution
 from .evaluation import build_contexts, evaluate
 from .model import (
+    DEFAULT_WIDTH,
     Params,
+    expected_parameter_count,
     init_parameters,
     masked_loss,
     parameter_count,
@@ -18,10 +22,13 @@ from .model import (
 from .plots import plot_distribution, plot_training
 
 
-def train(config: Config, overwrite: bool = False) -> TrainingReport:
-    best_path = config.data_dir / "best.npz"
-    last_path = config.data_dir / "last.npz"
-    report_path = config.data_dir / "training.json"
+def train(config: Config, width: int = DEFAULT_WIDTH, output_dir: Path | None = None,
+          overwrite: bool = False) -> TrainingReport:
+    """Train one MLP; checkpoints, report and plots go to output_dir."""
+    output_dir = output_dir or config.data_dir
+    best_path = output_dir / "best.npz"
+    last_path = output_dir / "last.npz"
+    report_path = output_dir / "training.json"
     if not overwrite and any(p.exists() for p in (best_path, last_path, report_path)):
         raise FileExistsError("Training results exist; use --overwrite to replace them")
     tokens, metadata = load_dataset(config)
@@ -31,8 +38,8 @@ def train(config: Config, overwrite: bool = False) -> TrainingReport:
     training = tokens[indices[validation_size:]]
     shuffle_rng = rng(config.seed, 3)
     key = jax.random.fold_in(jax.random.key(config.seed), 3)
-    params = init_parameters(jax.random.fold_in(jax.random.key(config.seed), 2))
-    if parameter_count(params) != 13800:
+    params = init_parameters(jax.random.fold_in(jax.random.key(config.seed), 2), width)
+    if parameter_count(params) != expected_parameter_count(width):
         raise ArithmeticError("Unexpected parameter count")
     optimizer = optax.adam(config.learning_rate)
     state = optimizer.init(params)
@@ -67,7 +74,7 @@ def train(config: Config, overwrite: bool = False) -> TrainingReport:
         validation,
         config.mask_probability,
         config.eval_batch_size,
-        config.data_dir,
+        output_dir,
     )
     metrics = [
         Metric(
@@ -105,7 +112,7 @@ def train(config: Config, overwrite: bool = False) -> TrainingReport:
                 validation,
                 config.mask_probability,
                 config.eval_batch_size,
-                config.data_dir,
+                output_dir,
             )
             values = {
                 "validation_loss": result.validation_loss,
@@ -127,13 +134,15 @@ def train(config: Config, overwrite: bool = False) -> TrainingReport:
         report = TrainingReport(
             config=config,
             software=software,
+            hidden_width=width,
+            parameter_count=parameter_count(params),
             dataset_sha256=metadata.dataset_sha256,
             best_epoch=best_epoch,
             metrics=metrics,
         )
         report.save(report_path)
     save_parameters(last_path, params)
-    plot_training(config, report)
-    save_model_distribution(config, target, best_log_probs, best_epoch)
-    plot_distribution(config, target, best_log_probs, best_epoch)
+    plot_training(output_dir, report)
+    save_model_distribution(output_dir, target, best_log_probs, best_epoch)
+    plot_distribution(output_dir, target, best_log_probs, best_epoch, width)
     return report

@@ -1,0 +1,28 @@
+{
+  "reward": "potts",
+  "beta": 2.0,
+  "temperature": 1.0,
+  "seed": 42,
+  "samples": 10000,
+  "burn_tv": 0.0001,
+  "correlation_bound": 0.01,
+  "diagnostic_limit": 50000,
+  "mask_probability": 0.5,
+  "epochs": 100,
+  "batch_size": 256,
+  "learning_rate": 0.001,
+  "eval_every": 10,
+  "validation_fraction": 0.1,
+  "data_dir": "data/potts",
+  "plots_dir": "data/potts",
+  "models_dir": "models/pretrain",
+  "hidden_exponents": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ]
+}

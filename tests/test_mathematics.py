@@ -7,19 +7,18 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
-from src.config import LENGTH, Config, Metric, SampleRequest, TokenBatch, load_config
-from src.data import build_kernel, build_target
+from src.config import LENGTH, Config, Metric, TokenBatch, load_config
+from src.data import build_kernel, build_target, couplings
 from src.evaluation import bayes_masked_nll, build_contexts, expected_masked_loss, joint_log_probs
 
 
-def test_validated_configuration() -> None:
-    assert load_config(Path("config.json")) == Config()
+def test_validated_configuration(tmp_path: Path) -> None:
+    Config().save(tmp_path / "config.json")
+    assert load_config(tmp_path / "config.json") == Config()
     for fields in ({"seed": -1}, {"temperature": 0.0}, {"unknown": 1},
-                   {"modes": ("A" * LENGTH,) * 4}):
+                   {"reward": "modes"}):
         with pytest.raises(ValidationError):
             Config.model_validate(fields)
-    with pytest.raises(ValidationError):
-        SampleRequest(context="ACGT???X")
     with pytest.raises(ValidationError):
         Metric(epoch=0, training_loss=float("nan"))
     for tokens in (np.zeros((2, LENGTH), dtype=np.float64),
@@ -124,3 +123,17 @@ def test_blockwise_dp_for_uniform_conditionals() -> None:
     log_p = joint_log_probs(contexts, conditionals)
     np.testing.assert_allclose(log_p, -12 * np.log(2), rtol=0, atol=1e-13)
     assert np.exp(log_p).sum() == pytest.approx(1, abs=1e-13)
+
+
+def test_potts_reward_is_one_hot_quadratic_form() -> None:
+    config = Config(reward="potts", beta=0.7)
+    coupling = couplings(config)
+    assert coupling.shape == (LENGTH, LENGTH, 4, 4)
+    assert np.all(coupling[np.tril_indices(LENGTH)] == 0)
+    target = build_target(config)
+    np.testing.assert_allclose(target.pi.sum(), 1, rtol=0, atol=1e-12)
+    matrix = coupling.transpose(0, 2, 1, 3).reshape(4 * LENGTH, 4 * LENGTH)
+    for index in np.random.default_rng(0).integers(0, len(target.pi), 20):
+        one_hot = np.eye(4)[target.tokens[index]].reshape(-1)
+        assert target.log_reward[index] == pytest.approx(0.7 * one_hot @ matrix @ one_hot)
+    assert len(set(target.modes)) == 4

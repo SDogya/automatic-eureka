@@ -7,7 +7,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .config import LENGTH, Config, FloatArray, IntArray, TrainingReport
+from pathlib import Path
+
+from .config import Config, FloatArray, IntArray, TrainingReport
 from .data import Target, build_target
 from .evaluation import bayes_masked_nll, build_contexts
 
@@ -17,10 +19,12 @@ def plot_reward(
 ) -> None:
     config.plots_dir.mkdir(parents=True, exist_ok=True)
     figure, axis = plt.subplots(figsize=(7, 4))
-    theoretical = np.bincount(target.distance, weights=target.pi, minlength=LENGTH + 1)[::-1]
+    edges = target.bin_edges
+    theoretical = np.bincount(target.reward_bin, weights=target.pi, minlength=len(edges) - 1)
     axis.bar(
-        np.arange(1 - LENGTH, 2),
+        (edges[:-1] + edges[1:]) / 2,
         theoretical,
+        width=0.8 * np.diff(edges),
         alpha=0.25,
         label="Exact target π",
         color="tab:blue",
@@ -31,22 +35,22 @@ def plot_reward(
     ):
         axis.hist(
             target.log_reward[ids],
-            bins=np.arange(0.5 - LENGTH, 2, 1),
+            bins=edges,
             weights=np.full(len(ids), 1 / len(ids)),
             histtype="step",
             linewidth=1.7,
             label=label,
             color=color,
         )
-    axis.set(xlabel="ln R(x)", ylabel="Probability", xticks=np.arange(1 - LENGTH, 2))
+    axis.set(xlabel="ln R(x)", ylabel="Probability")
     axis.legend()
     figure.tight_layout()
     figure.savefig(config.plots_dir / "reward.png", dpi=180)
     plt.close(figure)
 
 
-def plot_training(config: Config, report: TrainingReport) -> None:
-    config.plots_dir.mkdir(parents=True, exist_ok=True)
+def plot_training(directory: Path, report: TrainingReport) -> None:
+    directory.mkdir(parents=True, exist_ok=True)
     metrics = report.metrics
     evaluated = [m for m in metrics if m.validation_loss is not None]
     target = build_target(report.config)
@@ -76,7 +80,7 @@ def plot_training(config: Config, report: TrainingReport) -> None:
     figure.text(0.5, 0.015, "Empirical losses can fall below the population baseline.",
                 ha="center", fontsize=9)
     figure.tight_layout(rect=(0, 0.05, 1, 1))
-    figure.savefig(config.plots_dir / "loss.png", dpi=180)
+    figure.savefig(directory / "loss.png", dpi=180)
     plt.close(figure)
 
     figure, axis = plt.subplots(figsize=(8, 4.5))
@@ -89,7 +93,7 @@ def plot_training(config: Config, report: TrainingReport) -> None:
     axis.set(
         xlabel="Epoch",
         ylabel="KL(π || pθ), nats",
-        title="Exact random-order joint distribution",
+        title=f"Exact random-order joint distribution, width {report.hidden_width}",
     )
     maximum = max((m.kl for m in joint_metrics), default=0.0)
     axis.set_ylim(bottom=-0.04 * max(maximum, 0.01))
@@ -103,35 +107,36 @@ def plot_training(config: Config, report: TrainingReport) -> None:
     entropy_handles, entropy_labels = entropy_axis.get_legend_handles_labels()
     axis.legend(handles + entropy_handles, labels + entropy_labels, fontsize=9)
     figure.tight_layout()
-    figure.savefig(config.plots_dir / "kl.png", dpi=180)
+    figure.savefig(directory / "kl.png", dpi=180)
     plt.close(figure)
 
 
-def plot_distribution(config: Config, target: Target,
-                      log_probs: FloatArray, epoch: int) -> None:
+def plot_distribution(directory: Path, target: Target,
+                      log_probs: FloatArray, epoch: int, width: int) -> None:
     """Compare the exact target and learned distribution, without sampled noise."""
     model = np.exp(log_probs)
-    target_histogram = np.bincount(target.distance, weights=target.pi, minlength=LENGTH + 1)[::-1]
-    model_histogram = np.bincount(target.distance, weights=model, minlength=LENGTH + 1)[::-1]
+    edges = target.bin_edges
+    target_histogram = np.bincount(target.reward_bin, weights=target.pi, minlength=len(edges) - 1)
+    model_histogram = np.bincount(target.reward_bin, weights=model, minlength=len(edges) - 1)
     figure, (reward_axis, basin_axis) = plt.subplots(2, 1, figsize=(8, 7))
-    reward_axis.bar(np.arange(1 - LENGTH, 2), target_histogram, alpha=0.3, label="Target π")
-    reward_axis.stairs(model_histogram, np.arange(0.5 - LENGTH, 2, 1),
+    reward_axis.bar((edges[:-1] + edges[1:]) / 2, target_histogram, width=0.8 * np.diff(edges),
+                    alpha=0.3, label="Target π")
+    reward_axis.stairs(model_histogram, edges,
                        color="tab:orange", linewidth=2, label=f"Model pθ, epoch {epoch}")
-    reward_axis.set(xlabel="ln R(x)", ylabel="Probability", xticks=np.arange(1 - LENGTH, 2),
-                    title="Log reward distribution")
+    reward_axis.set(xlabel="ln R(x)", ylabel="Probability", title="Log reward distribution")
     reward_axis.legend()
-    positions = np.arange(len(config.modes))
+    positions = np.arange(len(target.modes))
     basin_axis.bar(positions - 0.18, target.pi @ target.basins, width=0.36, label="Target π")
     basin_axis.bar(positions + 0.18, model @ target.basins, width=0.36, label="Model pθ")
-    basin_axis.set(xticks=positions, xticklabels=config.modes, ylabel="Probability mass",
+    basin_axis.set(xticks=positions, xticklabels=target.modes, ylabel="Probability mass",
                    title="Nearest-mode mass (ties split equally)")
     basin_axis.set_ylim(0, 1.3 * max(float((target.pi @ target.basins).max()),
                                     float((model @ target.basins).max())))
     basin_axis.legend()
     kl = float(target.pi @ (target.log_pi - log_probs))
     tv = float(np.abs(target.pi - model).sum() / 2)
-    figure.suptitle(f"Exact distributions: best checkpoint, epoch {epoch} | KL={kl:.5f}, TV={tv:.5f}")
+    figure.suptitle(f"Width {width}, best epoch {epoch} | KL={kl:.5f}, TV={tv:.5f}")
     figure.tight_layout()
-    config.plots_dir.mkdir(parents=True, exist_ok=True)
-    figure.savefig(config.plots_dir / "distribution.png", dpi=180)
+    directory.mkdir(parents=True, exist_ok=True)
+    figure.savefig(directory / "distribution.png", dpi=180)
     plt.close(figure)

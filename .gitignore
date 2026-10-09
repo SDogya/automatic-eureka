@@ -2,11 +2,6 @@
 __pycache__/
 .pytest_cache/
 *.pyc
-data/*.parquet
-data/*.npz
-data/*.json
-plots/*.png
-
 .scratch/
-data/length10/
-plots/length10/
+# TraFL runs: hundreds of MB of checkpoints, reproducible with scripts/trafl_sweep.sh
+models/trafl/
