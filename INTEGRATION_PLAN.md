@@ -72,15 +72,15 @@ test suite green, and no step changes an existing number without an equivalence 
 5. **Run manifest:** `settings.json` records arm, knobs, the architecture spec, the reference path and the
    environment config. `evals.csv` has fixed column names, the `EvalMetric` fields, which the adapter reads.
 
-## 3. Order of work (each step: build, gate, full suite green, commit)
+## 3. Order of work (each step: build, gate, full suite green, commit; ✓ = done 2026-10-09, suite 81 green)
 
 | Step | What | Gate |
 |---|---|---|
-| 1 | RL loop on the registry: any checkpoint as start/reference; random init by spec | MLP runs bit-identical to now; transformer run normalised and finite |
-| 2 | Confidence decoder in exact evaluation | recursion = Monte Carlo of the sampler |
-| 3 | bitseq estimator arms: exact mask mean, U₂₊₂, six-pair U, exact completion | exact mean = expectation of the IID surrogate (exhaustive); U-statistics unbiased for δ̄²; exact log p = `metrics.trajectories.log_p_y` |
-| 4 | Entropic PPO | soft-RL gradient identity at ratio 1 |
-| 5 | RSPO, after reading its objective | its stated identity |
+| 1 ✓ | RL loop on the registry: any checkpoint as start/reference; random init by spec | MLP runs bit-identical to now; transformer run normalised and finite |
+| 2 ✓ | Confidence decoder in exact evaluation | recursion = Monte Carlo of the sampler |
+| 3 ✓ | bitseq estimator arms: exact mask mean, U₂₊₂, six-pair U, exact completion | exact mean = expectation of the IID surrogate (exhaustive); U-statistics unbiased for δ̄²; exact log p = `metrics.trajectories.log_p_y` |
+| 4 ✓ | Entropic PPO | soft-RL gradient identity at ratio 1 |
+| 5 ✓ | RSPO, after reading its objective | its stated identity |
 | 6 | Environment choice, then a realistic reference | reference report: KL to its data law, concentration, held-out-by-string NLL |
 | 7 | Analysis adapter + plots | adapter reproduces the `evals.csv` numbers |
 | 8 | Pre-stated grid, runs, readings | predictions written before running |

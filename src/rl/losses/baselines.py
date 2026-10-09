@@ -153,3 +153,26 @@ def order_variance(policy: object, forward: Forward, reference: Reference, conte
                                                              completions, o))) / jnp.maximum(count, 1)
                    for o in orders])
     return 0.5 * (x[0] - x[1]) ** 2
+
+
+def rspo_loss(policy: object, forward: Forward, contexts: jax.Array, completions: jax.Array, rewards: jax.Array,
+              key: jax.Array, *, reference: Reference, lam: float = 0.01, samples: int = 4, scheme: Scheme = "iid",
+              standardize: bool = True) -> jax.Array:
+    """RSPO (Yu et al., arXiv 2605.10218, Eq. 3.3): loss = -mean_i w_i * delta_hat_i, w_i = A_i - lam * sg(delta_hat_i),
+    delta_i = per-token ELBO log-ratio to the reference on shared masks, delta_hat = delta - sg(batch mean of delta).
+    Their mask law (t ~ U[0, 1] per token, empty masks resampled) is exactly the "iid" scheme: l ~ U{1..u}, uniform
+    subset. Advantages: group-relative, std-normalised when `standardize` (optional in the paper).
+    Its gradient is lam * grad 0.5 * mean (delta_hat - A / lam)^2: a squared residual to the target A / lam, with batch
+    centering where TraFL has log Z (gate in tests/test_arms.py)."""
+    hidden = _hidden(contexts, completions)
+    count = hidden.sum(axis=-1)
+    valid = count > 0
+    masks = draw_masks(key, hidden, samples, scheme)
+    ref = jax.lax.stop_gradient(masked_scores(reference.forward, reference.params, completions, masks).mean(axis=0))
+    delta = masked_scores(forward, policy, completions, masks).mean(axis=0) - ref
+    center = jax.lax.stop_gradient(jnp.sum(jnp.where(valid, delta, 0.0)) / jnp.maximum(valid.sum(), 1))
+    delta_hat = delta - center
+    centered = rewards - rewards.mean(axis=1, keepdims=True)
+    advantage = group_advantage(rewards) if standardize else jax.lax.stop_gradient(centered)
+    weight = jax.lax.stop_gradient(advantage - lam * delta_hat)
+    return _mean_valid(-weight * delta_hat, count)

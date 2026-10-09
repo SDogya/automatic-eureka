@@ -180,3 +180,25 @@ def test_order_variance_is_unbiased() -> None:
     se = float(jnp.std(draws)) / np.sqrt(len(draws))
     assert abs(float(draws.mean()) - target) < 4 * se + 1e-6
     assert target > 1e-4
+
+
+def test_rspo_gradient_is_a_scaled_squared_residual() -> None:
+    """grad RSPO = lam * grad 0.5 mean(delta_hat - A / lam)^2 (centering detached) on the same masks; loss value
+    = -mean(w * delta_hat)."""
+    from src.rl.losses.baselines import rspo_loss
+    completions = all_completions(PROMPT)[jnp.asarray([3, 17, 40, 63, 5, 22])].reshape(2, 3, 8)
+    contexts = jnp.stack([PROMPT, PROMPT])
+    rewards = jnp.asarray([[0.3, -1.0, 2.0], [1.5, 0.2, -0.7]])
+    key, lam = jax.random.key(6), 0.05
+
+    def squared(p: object) -> jax.Array:
+        masks = draw_masks(key, jnp.broadcast_to(contexts[:, None] == MASK, completions.shape), 4, "iid")
+        delta = masked_scores(forward, p, completions, masks).mean(0) - masked_scores(forward, REFERENCE.params, completions, masks).mean(0)
+        delta_hat = delta - jax.lax.stop_gradient(delta.mean())
+        return lam * 0.5 * jnp.mean((delta_hat - group_advantage(rewards) / lam) ** 2)
+
+    got = jax.grad(lambda p: rspo_loss(p, forward, contexts, completions, rewards, key, reference=REFERENCE, lam=lam))(POLICY)
+    want = jax.grad(squared)(POLICY)
+    for a, b in zip(jax.tree.leaves(got), jax.tree.leaves(want)):
+        np.testing.assert_allclose(a, b, atol=1e-6)
+    assert max(float(jnp.abs(g).max()) for g in jax.tree.leaves(got)) > 1e-4

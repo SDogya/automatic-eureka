@@ -12,6 +12,10 @@ Local branch `port-baselines` (from `origin/anton-dev`). Nothing is pushed. Writ
 | TraFL with the paper's complementary mask pairs (`--mask-scheme comp`) | `src/rl/losses/masks.py`, `trafl.py` | pairs partition the hidden set; uniform model gives −log 4 |
 | TraFL + across-order variance penalty (`--var-lambda`) | `baselines.order_variance` | unbiased for Var over orders (Monte Carlo vs exact) |
 | `tb` arm = the existing exact trajectory-balance loss (RTB-type) | `src/rl/train.py` | existing tests |
+| TraFL estimators from the bitseq thread (`--estimator`): split product, pairwise U-statistic, exact mask mean, exact completion likelihood | `src/rl/losses/estimators.py` | exact log p = sum over orders (value and gradient); exact mean = IID limit; U-statistics unbiased, square biased |
+| Entropic PPO (`--arm entppo`): torchgfn's `EntPPOGFlowNet` with RTB's soft reward (log P_ref per step, beta r at exit) | `src/rl/losses/entppo.py` | expected gradient = trajectory-KL gradient (exact); value targets = soft reward-to-go |
+| RSPO (`--arm rspo`, arXiv 2605.10218 Eq. 3.3; lambda 0.01) | `baselines.rspo_loss` | gradient = lambda * grad of 0.5 (delta_hat - A / lambda)^2 |
+| Exact low-confidence-remasking decoder (LLaDA / Fast-dLLM, T = 0.6) in every evaluation (`llada_*` columns) | `src/metrics/decoders.py` | step law = one-step simulation (catches tempered scoring); terminal law = simulation |
 | Exact distance from the reference: terminal KL both ways, trajectory KL, path KL = KL_traj − KL_term; AR-decoder score and KL | `src/metrics/paths.py`, `train.py` | self-distance 0; state recursion = Monte Carlo; AR law aligned with string order |
 | Transformer + architecture registry + size ablation (568 to 399k parameters) | `src/transformer.py`, `src/architecture.py`, `models/pretrain/transformer_*` | shapes; parameter counts; bit-exact checkpoints; normalised exact law; forward = torch reference to 4e-6 |
 
@@ -19,6 +23,19 @@ Local branch `port-baselines` (from `origin/anton-dev`). Nothing is pushed. Writ
 logged loss and exact metric identical). Gates were mutation-checked (each fails when its piece is broken).
 
 ## Things to know before reading any comparison
+
+0. **Two arms are adaptations, not literal ports.**
+   - **Ent-PPO** is defined without a reference: target R/Z with a fixed backward policy. Here the per-step soft
+     reward is log P_ref instead of log P_B. That is exactly the standard form with P_B := the reference's own
+     backward policy and terminal reward p_ref(y) R^beta, because sum_t log P_ref = sum_t log P_B^ref + log p_ref(y).
+     The optimum and the expected gradient at lambda = 1 are the same; per-step credit assignment (GAE at
+     lambda < 1) differs.
+   - **RSPO** is a squared-residual regression in disguise (gradient identity above): TraFL-like, with batch centering
+     in place of log Z and beta ~ 1 / lambda.
+   - Path targets at the optimum:
+     - c_ref(tau | y): RTB / `tb`, `entppo`;
+     - uniform order: a GFlowNet with uniform P_B (not added; can be);
+     - not pinned: the per-string objectives (TraFL's surrogate, exact likelihood, RSPO, ESPO's k2).
 
 1. **The TraFL runs here use 32 IID masks** (`trafl_b15_k32`, sweep default `--mask-samples 32`); the paper uses 4
    as two complementary pairs, and the README says 4. In gfn_lab's analysis the squared loss over K masks adds
