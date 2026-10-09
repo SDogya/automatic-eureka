@@ -83,7 +83,7 @@ test suite green, and no step changes an existing number without an equivalence 
 | 5 ✓ | RSPO, after reading its objective | its stated identity |
 | 6 | Environment choice, then a realistic reference | reference report: KL to its data law, concentration, held-out-by-string NLL |
 | 7 ✓ | Analysis adapter + plots | adapter reproduces the `evals.csv` numbers |
-| 8 | Pre-stated grid, runs, readings | predictions written before running |
+| 8 (grid 1 ✓) | Pre-stated grid, runs, readings | predictions written before running; grid 1 on environment (b): `results/port_grid1/` |
 
 ## 4. Known issues found in the existing code (transformer-port review), and what is done about them
 

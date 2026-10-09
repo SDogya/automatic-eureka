@@ -1,8 +1,10 @@
 """Comparisons across arms that do not depend on one setting's endpoint (ported from gfn_lab's S2 analyses).
 
-matched      y at matched x: per seed, a least-squares line in log-log space through that seed's checkpoints with
-             x within a factor `window` of the level, evaluated at the level; then mean [min, max] over seeds.
-             Default: path KL at matched terminal KL(p_ref || p_theta), the S2 reading.
+matched      y at matched x: per seed, the FIRST time the run reaches the level, log y interpolated linearly in log x
+             between the two consecutive checkpoints (in training order) that bracket it; then mean [min, max] over
+             seeds. Default: path KL at matched terminal KL(p_ref || p_theta), the S2 reading. First crossing, not
+             a window fit, because some arms (ESPO-PPO) move the terminal KL back down while the path KL keeps
+             growing: a level is then visited twice, at different path distances.
 ratio_windows median of y / x over checkpoints in update windows, keeping checkpoints whose x lies in a band (so
              early near-zero distances do not dominate), pooled over a group's seeds.
 """
@@ -21,22 +23,25 @@ class Cell(NamedTuple):
     seeds: int
 
 
-def matched_value(x: np.ndarray, y: np.ndarray, level: float, window: float = 3.0) -> float:
-    """Local log-log fit of y on x through the points with level / window <= x <= level * window; NaN if < 2 points."""
-    keep = np.isfinite(x) & np.isfinite(y) & (x > 0) & (y > 0) & (x >= level / window) & (x <= level * window)
-    if keep.sum() < 2 or np.ptp(np.log(x[keep])) == 0:
-        return float("nan")
-    slope, intercept = np.polyfit(np.log(x[keep]), np.log(y[keep]), 1)
-    return float(np.exp(intercept + slope * np.log(level)))
+def matched_value(x: np.ndarray, y: np.ndarray, level: float) -> float:
+    """First crossing of x = level in training order, log-log interpolation of y; NaN if never reached."""
+    ok = np.isfinite(x) & np.isfinite(y) & (x > 0) & (y > 0)
+    x, y = x[ok], y[ok]
+    for i in range(len(x) - 1):
+        lo, hi = sorted((x[i], x[i + 1]))
+        if lo <= level <= hi and hi > lo:
+            w = (np.log(level) - np.log(x[i])) / (np.log(x[i + 1]) - np.log(x[i]))
+            return float(np.exp(np.log(y[i]) + w * (np.log(y[i + 1]) - np.log(y[i]))))
+    return float("nan")
 
 
-def matched(runs: list[Run], levels: tuple[float, ...], x: str = "kl_from_ref", y: str = "kl_path_ref",
-            window: float = 3.0) -> dict[str, dict[float, Cell]]:
+def matched(runs: list[Run], levels: tuple[float, ...], x: str = "kl_from_ref",
+            y: str = "kl_path_ref") -> dict[str, dict[float, Cell]]:
     table: dict[str, dict[float, Cell]] = {}
     for group in by_group(runs).values():
         row = {}
         for level in levels:
-            values = [matched_value(r.evals.get(x, np.array([])), r.evals.get(y, np.array([])), level, window)
+            values = [matched_value(r.evals.get(x, np.array([])), r.evals.get(y, np.array([])), level)
                       for r in group]
             values = [v for v in values if np.isfinite(v)]
             row[level] = Cell(float(np.mean(values)), min(values), max(values), len(values)) if values else \

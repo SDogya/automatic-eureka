@@ -55,7 +55,9 @@ def test_adapter_round_trip_and_grouping(tmp_path: Path) -> None:
 def test_matched_and_windows_recover_the_power_law(tmp_path: Path) -> None:
     x = np.array([0.01, 0.03, 0.1, 0.3, 1.0])
     assert abs(matched_value(x, 2 * x**1.5, 0.2) - 2 * 0.2**1.5) < 1e-9
-    assert np.isnan(matched_value(x, 2 * x**1.5, 100.0))                  # no points near the level
+    assert np.isnan(matched_value(x, 2 * x**1.5, 100.0))                  # never reached
+    xs, ys = np.array([0.0, 0.1, 1.0, 0.5, 0.2]), np.array([0.0, 0.01, 0.1, 5.0, 9.0])   # rises, then falls back
+    assert abs(matched_value(xs, ys, 0.3) - np.exp(np.log(0.01) + np.log(3) / np.log(10) * np.log(10))) < 1e-9
     mlp = {"family": "mlp", "width": 32}
     write_run(tmp_path, "a", 0, {"arm": "grpo"}, rows(2.0), mlp)
     write_run(tmp_path, "a", 1, {"arm": "grpo"}, rows(2.0), mlp)
