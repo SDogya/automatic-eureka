@@ -22,7 +22,10 @@ from pydantic import Field
 from ..config import LENGTH, MASK, Config, Record, rng
 from ..data import Target, build_target
 from ..evaluation import Contexts, build_contexts, evaluate
-from ..model import Layer, Params, forward, init_parameters, load_parameters, save_parameters
+from ..architecture import Architecture
+from ..architecture import load as load_checkpoint
+from ..architecture import save as save_checkpoint
+from ..model import Layer, Params, forward
 from ..metrics.paths import log_conditionals, path_kl
 from .losses.baselines import ar_token_log_probs, espo_loss, grpo_loss, justgrpo_loss, order_variance
 from .losses.masks import Scheme
@@ -192,7 +195,8 @@ def plateaued(steps: list["StepMetric"], trafl: TraflConfig) -> bool:
 
 def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
                 start: Path | None, output_dir: Path, scores: np.ndarray,
-                log: "LogFn", resume: tuple[Path, int] | None = None) -> TraflReport:
+                log: "LogFn", resume: tuple[Path, int] | None = None,
+                architecture: Architecture | None = None) -> TraflReport:
     """resume=(run_dir, step) continues that run: policy and log Z from the step checkpoint,
     reference from its step 0, step numbering continued; Adam moments restart."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -200,14 +204,22 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
     key = jax.random.fold_in(jax.random.key(trafl.seed), width)
     key, policy_key, z_key = jax.random.split(key, 3)
     first = 0
+    # any architecture: a checkpoint carries its own (architecture.load); random init uses `architecture`, default
+    # the MLP of this width (same key use as before the port, so MLP runs reproduce)
     if resume is None:
-        initial = init_parameters(policy_key, width) if start is None else load_parameters(start)
+        if start is None:
+            arch = architecture if architecture is not None else Architecture.mlp(width)
+            initial = arch.init(policy_key)
+        else:
+            arch, initial = load_checkpoint(start)
         params = (initial, init_log_z(z_key, trafl.log_z_width))
     else:
         run_dir, first = resume
-        initial = load_parameters(run_dir / "step_00000.npz")
-        params = (load_parameters(run_dir / f"step_{first:05d}.npz"), load_log_z(run_dir / f"log_z_step_{first:05d}.npz"))
+        arch, initial = load_checkpoint(run_dir / "step_00000.npz")
+        params = (load_checkpoint(run_dir / f"step_{first:05d}.npz")[1],
+                  load_log_z(run_dir / f"log_z_step_{first:05d}.npz"))
         key = jax.random.fold_in(key, first)
+    forward = arch.forward  # noqa: F811  (local: every closure below uses the run's architecture)
     reference = Reference(forward, initial) if trafl.reference == "initial" else None
     if reference is None and (trafl.arm in ("espo", "espo_ppo") or trafl.var_lambda):
         raise ValueError(f"arm {trafl.arm} with var_lambda={trafl.var_lambda} needs reference='initial'")
@@ -231,11 +243,12 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
     validation = pi.tokens[rng(trafl.seed, 7).choice(len(pi.pi), 256, p=pi.pi)]
     ref_tables = None
     if reference is not None:
-        _, log_p_initial = exact_evaluation(0, initial, contexts_all, pi, pi, scores, validation, output_dir)
+        _, log_p_initial = exact_evaluation(0, initial, contexts_all, pi, pi, scores, validation, output_dir,
+                                            forward_fn=forward)
         target = tilted_target(pi, log_p_initial, trafl.beta)
         ref_tables = ReferenceTables(log_conditionals(forward, initial, contexts_all), log_p_initial)
     write_settings(output_dir, name, init, width, config, trafl, start, first)
-    log(f"[{name}] init={init} width={width} start={start} reference={trafl.reference} "
+    log(f"[{name}] init={init} architecture={arch.spec.model_dump()} start={start} reference={trafl.reference} "
         f"H(target)={float(-target.pi @ target.log_pi):.3f} E_target[y]={float(target.pi @ scores):.4f} -> {output_dir}")
 
     sampler = complete_ar if trafl.arm == "justgrpo" else complete_uniform
@@ -321,12 +334,12 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
     eval_log = CsvLog(output_dir / "evals.csv", list(EvalMetric.model_fields))
 
     def checkpoint(step: int) -> None:
-        save_parameters(output_dir / f"step_{step:05d}.npz", params[0])
+        save_checkpoint(output_dir / f"step_{step:05d}.npz", arch, params[0])
         np.savez(output_dir / f"log_z_step_{step:05d}.npz",
                  **{f"{n}{i}": np.asarray(a) for i, layer in enumerate(params[1]) for n, a in zip("wb", layer)})
         began = time.time()
         metric, _ = exact_evaluation(step, params[0], contexts_all, target, pi, scores, validation, output_dir,
-                                     ref=ref_tables)
+                                     forward_fn=forward, ref=ref_tables)
         evaluations.append(metric)
         eval_log.write(metric.model_dump())
         plot_curves(name, steps, evaluations, output_dir / "curves.png")

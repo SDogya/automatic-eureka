@@ -21,6 +21,8 @@ def main() -> None:
     parser.add_argument("--save-every", type=int, default=250)
     parser.add_argument("--schedule", choices=("constant", "cosine"), default="constant")
     parser.add_argument("--start-models", type=Path, default=Path("models/pretrain"))
+    parser.add_argument("--start", type=Path, help="Any checkpoint (MLP or transformer) as start and reference; "
+                        "overrides --start-models/mlp_<exponent>; implies --only finetune")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--learning-rate", type=float, default=1e-3)
     parser.add_argument("--beta", type=float, default=1.5, help="TraFL beta: target p_ref(tau|x) exp(beta r(y))")
@@ -51,8 +53,10 @@ def main() -> None:
     root = args.output / f"seed_{args.seed}"
     log = LogFn(root / f"train_k{args.exponent}.log")
     scores = tfbind8_scores()
-    for start in (args.start_models / f"mlp_{args.exponent}" / "best.npz", None):
-        name = f"{'finetune' if start else 'random_init'}_{args.exponent}"
+    starts = (args.start,) if args.start else (args.start_models / f"mlp_{args.exponent}" / "best.npz", None)
+    for start in starts:
+        tag = args.start.parent.name if args.start else str(args.exponent)
+        name = f"{'finetune' if start else 'random_init'}_{tag}"
         if args.only and not name.startswith(args.only):
             continue
         resume = None if args.resume_from is None else (
