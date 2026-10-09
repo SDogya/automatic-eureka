@@ -26,6 +26,7 @@ from ..architecture import Architecture
 from ..architecture import load as load_checkpoint
 from ..architecture import save as save_checkpoint
 from ..model import Layer, Params, forward
+from ..metrics.decoders import proposal_terminal_log_probs
 from ..metrics.paths import log_conditionals, path_kl
 from .losses.baselines import ar_token_log_probs, espo_loss, grpo_loss, justgrpo_loss, order_variance
 from .losses.masks import Scheme
@@ -98,6 +99,11 @@ class EvalMetric(Record):
     entropy: float = float("nan")
     ar_expected_score: float = float("nan")  # the same under the left-to-right decoder (JustGRPO's policy)
     ar_kl_to_ref: float = float("nan")       # KL(p_AR,theta || p_ref)
+    # low-confidence-remasking decoder (LLaDA / Fast-dLLM, one token per step) at T = DECODER_T: the realistic decoder
+    llada_expected_score: float = float("nan")
+    llada_expected_log_reward: float = float("nan")
+    llada_entropy: float = float("nan")
+    llada_kl_to_ref: float = float("nan")    # KL(p_dec,theta || p_dec,ref), both under the same decoder
 
 
 class TraflReport(Record):
@@ -129,9 +135,13 @@ def tilted_target(target: Target, log_p_reference: np.ndarray, beta: float) -> T
     return target._replace(log_pi=log_pi, pi=np.exp(log_pi))
 
 
+DECODER_T = 0.6  # TraFL's evaluation temperature
+
+
 class ReferenceTables(NamedTuple):
-    log_cond: np.ndarray  # log q_ref(a | s, i) for every partial string
-    log_p: np.ndarray     # log p_ref(y), empty prompt
+    log_cond: np.ndarray     # log q_ref(a | s, i) for every partial string
+    log_p: np.ndarray        # log p_ref(y), empty prompt, random-order decoder
+    log_p_llada: np.ndarray  # log p_ref(y) under the low-confidence-remasking decoder at DECODER_T
 
 
 def ar_log_probs(forward_fn: object, params: object, full_tokens: np.ndarray, batch: int = 8192) -> np.ndarray:
@@ -151,13 +161,20 @@ def exact_evaluation(step: int, params: Params, contexts: Contexts, target: Targ
     model = np.exp(result.log_probs)
     extra = {}
     if ref is not None:
-        paths = path_kl(contexts, ref.log_cond, log_conditionals(forward_fn, params, contexts))
+        log_cond = log_conditionals(forward_fn, params, contexts)
+        paths = path_kl(contexts, ref.log_cond, log_cond)
         log_ar = ar_log_probs(forward_fn, params, pi.tokens)
+        log_dec = proposal_terminal_log_probs(contexts, log_cond, DECODER_T)
+        dec = np.exp(log_dec)
+        finite = dec > 0
         extra = dict(kl_to_ref=float(model @ (result.log_probs - ref.log_p)), kl_from_ref=paths.kl_term,
                      kl_traj_ref=paths.kl_traj, kl_path_ref=paths.kl_path,
                      expected_log_reward=float(model @ pi.log_reward), entropy=float(-model @ result.log_probs),
                      ar_expected_score=float(np.exp(log_ar) @ scores),
-                     ar_kl_to_ref=float(np.exp(log_ar) @ (log_ar - ref.log_p)))
+                     ar_kl_to_ref=float(np.exp(log_ar) @ (log_ar - ref.log_p)),
+                     llada_expected_score=float(dec @ scores), llada_expected_log_reward=float(dec @ pi.log_reward),
+                     llada_entropy=float(-dec[finite] @ log_dec[finite]),
+                     llada_kl_to_ref=float(dec[finite] @ (log_dec[finite] - ref.log_p_llada[finite])))
     return EvalMetric(
         step=step, kl=result.kl, kl_to_pi=float(pi.pi @ (pi.log_pi - result.log_probs)),
         reverse_kl=float(model @ (result.log_probs - target.log_pi)),
@@ -246,7 +263,9 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
         _, log_p_initial = exact_evaluation(0, initial, contexts_all, pi, pi, scores, validation, output_dir,
                                             forward_fn=forward)
         target = tilted_target(pi, log_p_initial, trafl.beta)
-        ref_tables = ReferenceTables(log_conditionals(forward, initial, contexts_all), log_p_initial)
+        ref_cond = log_conditionals(forward, initial, contexts_all)
+        ref_tables = ReferenceTables(ref_cond, log_p_initial,
+                                     proposal_terminal_log_probs(contexts_all, ref_cond, DECODER_T))
     write_settings(output_dir, name, init, width, config, trafl, start, first)
     log(f"[{name}] init={init} architecture={arch.spec.model_dump()} start={start} reference={trafl.reference} "
         f"H(target)={float(-target.pi @ target.log_pi):.3f} E_target[y]={float(target.pi @ scores):.4f} -> {output_dir}")
