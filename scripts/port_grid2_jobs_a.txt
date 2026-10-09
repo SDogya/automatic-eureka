@@ -1,0 +1,37 @@
+COMMON --config configs/potts_tfbind8.json --only finetune --steps 10000 --save-every 500 --no-plateau-stop --learning-rate 1e-4 --eval-steps 1 2 4 8 16 32 64 128 256 512 1024 2048 4096 --exponent 5
+trafl_iid32_b0.5 1 --arm trafl --mask-samples 32 --beta 0.5
+trafl_comp4_b0.5 1 --arm trafl --mask-scheme comp --mask-samples 4 --beta 0.5
+tb_b0.5 1 --arm tb --beta 0.5
+entppo_b0.5 1 --arm entppo --ppo-epochs 4 --beta 0.5
+db_b0.5 1 --arm db --beta 0.5
+subtb_b0.5 1 --arm subtb --beta 0.5
+trafl_iid32_b0.5 2 --arm trafl --mask-samples 32 --beta 0.5
+trafl_comp4_b0.5 2 --arm trafl --mask-scheme comp --mask-samples 4 --beta 0.5
+tb_b0.5 2 --arm tb --beta 0.5
+entppo_b0.5 2 --arm entppo --ppo-epochs 4 --beta 0.5
+db_b0.5 2 --arm db --beta 0.5
+subtb_b0.5 2 --arm subtb --beta 0.5
+trafl_iid32_b1.5 1 --arm trafl --mask-samples 32 --beta 1.5
+trafl_comp4_b1.5 1 --arm trafl --mask-scheme comp --mask-samples 4 --beta 1.5
+tb_b1.5 1 --arm tb --beta 1.5
+entppo_b1.5 1 --arm entppo --ppo-epochs 4 --beta 1.5
+db_b1.5 1 --arm db --beta 1.5
+subtb_b1.5 1 --arm subtb --beta 1.5
+trafl_iid32_b1.5 2 --arm trafl --mask-samples 32 --beta 1.5
+trafl_comp4_b1.5 2 --arm trafl --mask-scheme comp --mask-samples 4 --beta 1.5
+tb_b1.5 2 --arm tb --beta 1.5
+entppo_b1.5 2 --arm entppo --ppo-epochs 4 --beta 1.5
+db_b1.5 2 --arm db --beta 1.5
+subtb_b1.5 2 --arm subtb --beta 1.5
+trafl_iid32_b4.5 1 --arm trafl --mask-samples 32 --beta 4.5
+trafl_comp4_b4.5 1 --arm trafl --mask-scheme comp --mask-samples 4 --beta 4.5
+tb_b4.5 1 --arm tb --beta 4.5
+entppo_b4.5 1 --arm entppo --ppo-epochs 4 --beta 4.5
+db_b4.5 1 --arm db --beta 4.5
+subtb_b4.5 1 --arm subtb --beta 4.5
+trafl_iid32_b4.5 2 --arm trafl --mask-samples 32 --beta 4.5
+trafl_comp4_b4.5 2 --arm trafl --mask-scheme comp --mask-samples 4 --beta 4.5
+tb_b4.5 2 --arm tb --beta 4.5
+entppo_b4.5 2 --arm entppo --ppo-epochs 4 --beta 4.5
+db_b4.5 2 --arm db --beta 4.5
+subtb_b4.5 2 --arm subtb --beta 4.5

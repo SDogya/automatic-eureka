@@ -1,0 +1,29 @@
+COMMON --config configs/potts_tfbind8.json --only finetune --steps 10000 --save-every 500 --no-plateau-stop --learning-rate 1e-4 --eval-steps 1 2 4 8 16 32 64 128 256 512 1024 2048 4096 --exponent 5
+trafl_comp4_var1_b4.5 1 --arm trafl --mask-scheme comp --mask-samples 4 --beta 4.5 --var-lambda 1
+trafl_comp4_var1_b4.5 2 --arm trafl --mask-scheme comp --mask-samples 4 --beta 4.5 --var-lambda 1
+trafl_comp4_var4_b4.5 1 --arm trafl --mask-scheme comp --mask-samples 4 --beta 4.5 --var-lambda 4
+trafl_comp4_var4_b4.5 2 --arm trafl --mask-scheme comp --mask-samples 4 --beta 4.5 --var-lambda 4
+trafl_comp4_mlp_3 1 --start models/pretrain/mlp_3/best.npz --arm trafl --mask-scheme comp --mask-samples 4 --beta 1.5
+tb_mlp_3 1 --start models/pretrain/mlp_3/best.npz --arm tb --beta 1.5
+espo_mlp_3 1 --start models/pretrain/mlp_3/best.npz --arm espo --mask-scheme comp --mask-samples 4 --kappa 0.05
+grpo_mlp_3 1 --start models/pretrain/mlp_3/best.npz --arm grpo
+trafl_comp4_mlp_3 2 --start models/pretrain/mlp_3/best.npz --arm trafl --mask-scheme comp --mask-samples 4 --beta 1.5
+tb_mlp_3 2 --start models/pretrain/mlp_3/best.npz --arm tb --beta 1.5
+espo_mlp_3 2 --start models/pretrain/mlp_3/best.npz --arm espo --mask-scheme comp --mask-samples 4 --kappa 0.05
+grpo_mlp_3 2 --start models/pretrain/mlp_3/best.npz --arm grpo
+trafl_comp4_mlp_7 1 --start models/pretrain/mlp_7/best.npz --arm trafl --mask-scheme comp --mask-samples 4 --beta 1.5
+tb_mlp_7 1 --start models/pretrain/mlp_7/best.npz --arm tb --beta 1.5
+espo_mlp_7 1 --start models/pretrain/mlp_7/best.npz --arm espo --mask-scheme comp --mask-samples 4 --kappa 0.05
+grpo_mlp_7 1 --start models/pretrain/mlp_7/best.npz --arm grpo
+trafl_comp4_mlp_7 2 --start models/pretrain/mlp_7/best.npz --arm trafl --mask-scheme comp --mask-samples 4 --beta 1.5
+tb_mlp_7 2 --start models/pretrain/mlp_7/best.npz --arm tb --beta 1.5
+espo_mlp_7 2 --start models/pretrain/mlp_7/best.npz --arm espo --mask-scheme comp --mask-samples 4 --kappa 0.05
+grpo_mlp_7 2 --start models/pretrain/mlp_7/best.npz --arm grpo
+trafl_comp4_transformer_d32_l2_h4_f128 1 --start models/pretrain/transformer_d32_l2_h4_f128/best.npz --arm trafl --mask-scheme comp --mask-samples 4 --beta 1.5
+tb_transformer_d32_l2_h4_f128 1 --start models/pretrain/transformer_d32_l2_h4_f128/best.npz --arm tb --beta 1.5
+espo_transformer_d32_l2_h4_f128 1 --start models/pretrain/transformer_d32_l2_h4_f128/best.npz --arm espo --mask-scheme comp --mask-samples 4 --kappa 0.05
+grpo_transformer_d32_l2_h4_f128 1 --start models/pretrain/transformer_d32_l2_h4_f128/best.npz --arm grpo
+trafl_comp4_transformer_d32_l2_h4_f128 2 --start models/pretrain/transformer_d32_l2_h4_f128/best.npz --arm trafl --mask-scheme comp --mask-samples 4 --beta 1.5
+tb_transformer_d32_l2_h4_f128 2 --start models/pretrain/transformer_d32_l2_h4_f128/best.npz --arm tb --beta 1.5
+espo_transformer_d32_l2_h4_f128 2 --start models/pretrain/transformer_d32_l2_h4_f128/best.npz --arm espo --mask-scheme comp --mask-samples 4 --kappa 0.05
+grpo_transformer_d32_l2_h4_f128 2 --start models/pretrain/transformer_d32_l2_h4_f128/best.npz --arm grpo
