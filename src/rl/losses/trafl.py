@@ -13,6 +13,7 @@ import jax
 import jax.numpy as jnp
 
 from ...config import MASK
+from .masks import Scheme, draw_masks, masked_scores
 
 Forward = Callable[[object, jax.Array], jax.Array]  # (params, tokens (..., L)) -> logits (..., L, 4)
 LogZ = Callable[[object, jax.Array], jax.Array]  # (params, contexts (C, L)) -> log Z (C,)
@@ -26,15 +27,20 @@ class Reference(NamedTuple):
 
 def surrogate_log_prob(forward: Forward, params: object, contexts: jax.Array,
                        completions: jax.Array, key: jax.Array, samples: int = 4,
-                       normalization: Normalization = "paper") -> jax.Array:
+                       normalization: Normalization = "paper", scheme: Scheme = "iid") -> jax.Array:
     """Monte Carlo masked-reconstruction estimate of log p(y | c), shape (C, G).
 
     For each sample: l ~ U{1..u}, mask l random positions of U(c), score them.
     "paper" weights the sum by 1/l (per-position average, Eq. 4 of the paper);
     "elbo" weights it by u/l, the random-order ELBO, a lower bound on log p(y | c).
+    scheme="comp" draws the masks as antithetic pairs instead (see masks.py); "iid" is this function's original
+    draw, kept unchanged so earlier runs reproduce.
     """
     hidden = jnp.broadcast_to(contexts[:, None, :] == MASK, completions.shape)
     count = hidden.sum(axis=-1)
+    if scheme == "comp":
+        per_token = masked_scores(forward, params, completions, draw_masks(key, hidden, samples, "comp")).mean(axis=0)
+        return per_token * (count if normalization == "elbo" else 1)
 
     def one(sample_key: jax.Array) -> jax.Array:
         length_key, order_key = jax.random.split(sample_key)
@@ -53,7 +59,7 @@ def surrogate_log_prob(forward: Forward, params: object, contexts: jax.Array,
 def trafl_residuals(params: tuple[object, object], forward: Forward, log_z: LogZ,
                     contexts: jax.Array, completions: jax.Array, rewards: jax.Array,
                     key: jax.Array, beta: float | jax.Array, reference: Reference | None = None,
-                    samples: int = 4, normalization: Normalization = "paper") -> jax.Array:
+                    samples: int = 4, normalization: Normalization = "paper", scheme: Scheme = "iid") -> jax.Array:
     """Trajectory-balance residuals delta, shape (C, G) (Algorithm 1 of the paper).
 
     params = (policy_params, log_z_params); contexts (C, L); completions (C, G, L)
@@ -62,9 +68,9 @@ def trafl_residuals(params: tuple[object, object], forward: Forward, log_z: LogZ
     is constant and absorbed by log Z.
     """
     policy, z_params = params
-    log_p = surrogate_log_prob(forward, policy, contexts, completions, key, samples, normalization)
+    log_p = surrogate_log_prob(forward, policy, contexts, completions, key, samples, normalization, scheme)
     log_ref = 0.0 if reference is None else surrogate_log_prob(
-        reference.forward, reference.params, contexts, completions, key, samples, normalization)
+        reference.forward, reference.params, contexts, completions, key, samples, normalization, scheme)
     centered = rewards - rewards.mean(axis=1, keepdims=True)
     beta = jnp.asarray(beta)
     beta = beta[:, None] if beta.ndim == 1 else beta
