@@ -20,4 +20,4 @@ job_list() {
   done
 }
 mkdir -p models/port_grid1/logs
-job_list | xargs -P 6 -L 1 bash -c 'name=$0; seed=$1; shift 2; uv run --no-sync python -m src.rl.sweep $COMMON --seed $seed --output models/port_grid1/$name "$@" > models/port_grid1/logs/${name}_s${seed}.log 2>&1 && echo "done $name s$seed" || echo "FAILED $name s$seed"'
+job_list | xargs -P 6 -L 1 bash -c 'name=$0; seed=$1; shift 1; uv run --no-sync python -m src.rl.sweep $COMMON --seed $seed --output models/port_grid1/$name "$@" > models/port_grid1/logs/${name}_s${seed}.log 2>&1 && echo "done $name s$seed" || echo "FAILED $name s$seed"'
