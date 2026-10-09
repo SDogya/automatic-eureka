@@ -5,3 +5,5 @@ __pycache__/
 .scratch/
 # TraFL runs: hundreds of MB of checkpoints, reproducible with scripts/trafl_sweep.sh
 models/trafl/
+# port grids: checkpoints are large; reports and runs.csv go to results/
+models/port_*/

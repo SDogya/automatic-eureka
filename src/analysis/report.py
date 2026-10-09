@@ -137,6 +137,13 @@ def report(root: Path, out: Path, levels: tuple[float, ...], band: tuple[float, 
     _curves(runs, "llada_kl_to_ref", "llada_expected_score", out / "decoder.png",
             "KL to the reference, low-confidence-remasking decoder (T 0.6)", "expected score, same decoder")
     _ratio_figure(windows, runs, edges, out / "ratio.png")
+    columns = sorted({k for r in runs for k in r.evals})
+    with (out / "runs.csv").open("w") as f:                    # every checkpoint of every run, for re-analysis
+        f.write(",".join(["configuration", "seed", "path"] + columns) + "\n")
+        for r in runs:
+            for i in range(len(r.evals["step"])):
+                values = [repr(float(r.evals[c][i])) if c in r.evals else "" for c in columns]
+                f.write(",".join([f'"{r.label}"', str(r.seed), str(r.path)] + values) + "\n")
     return runs
 
 
