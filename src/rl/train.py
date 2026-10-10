@@ -35,7 +35,7 @@ from .losses.flow_balance import db_loss, subtb_loss
 from .losses.estimators import Estimator, residual_loss
 from .losses.masks import Scheme
 from .losses.trafl import Normalization, Reference, trafl_residuals
-from .losses.trajectory_balance import trajectory_residuals
+from .losses.trajectory_balance import log_p_decoder_trajectory, trajectory_residuals
 from .samplers import complete_ar, complete_proposal, complete_uniform
 
 ZParams = tuple[Layer, Layer]
@@ -61,7 +61,8 @@ class TraflConfig(Record):
     reference: Literal["initial", "uniform"] = "initial"
     # arm and its knobs: beta (trafl, tb), kappa (espo, espo_ppo), none (grpo, justgrpo); var_lambda adds TraFL's
     # explicit across-order variance penalty; ppo_epochs = policy updates per rollout batch (ESPO's mu)
-    arm: Literal["trafl", "tb", "espo", "espo_ppo", "grpo", "justgrpo", "entppo", "rspo", "db", "subtb"] = "trafl"
+    arm: Literal["trafl", "tb", "espo", "espo_ppo", "grpo", "justgrpo", "entppo", "rspo", "db", "subtb",
+                 "tb_dec"] = "trafl"   # tb_dec: RTB scored and sampled under the low-confidence-remasking decoder
     mask_scheme: Scheme = "iid"
     estimator: Estimator = "square"  # trafl only: square (this repo), split / pairwise (U-statistics), exact_masks, exact_lik
     var_lambda: float = Field(default=0.0, ge=0)
@@ -271,7 +272,8 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
         key = jax.random.fold_in(key, first)
     forward = arch.forward  # noqa: F811  (local: every closure below uses the run's architecture)
     reference = Reference(forward, initial) if trafl.reference == "initial" else None
-    if reference is None and (trafl.arm in ("espo", "espo_ppo", "entppo", "rspo", "db", "subtb") or trafl.var_lambda
+    if reference is None and (trafl.arm in ("espo", "espo_ppo", "entppo", "rspo", "db", "subtb", "tb_dec")
+                              or trafl.var_lambda
                               or trafl.estimator != "square"):
         raise ValueError(f"arm {trafl.arm} with var_lambda={trafl.var_lambda} needs reference='initial'")
     def rate(peak: float) -> optax.Schedule:
@@ -309,11 +311,11 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
         raise ValueError("split / pairwise need independent masks: comp pairs are dependent (biased U-statistic)")
     if trafl.ppo_epochs > 1 and trafl.arm in ("espo", "grpo", "rspo"):
         raise ValueError(f"arm {trafl.arm} has no clipped reuse: use espo_ppo / justgrpo / entppo for ppo_epochs > 1")
-    if trafl.rollout == "decoder" and trafl.arm not in ("trafl", "espo", "espo_ppo", "rspo"):
+    if trafl.rollout == "decoder" and trafl.arm not in ("trafl", "espo", "espo_ppo", "rspo", "tb_dec"):
         raise ValueError(f"rollout='decoder' changes the trajectory law that arm {trafl.arm} scores; per-string arms only")
     if trafl.arm == "justgrpo":
         sampler = complete_ar
-    elif trafl.rollout == "decoder":
+    elif trafl.rollout == "decoder" or trafl.arm == "tb_dec":
         sampler = partial(complete_proposal, temperature=trafl.rollout_temperature)
     else:
         sampler = complete_uniform
@@ -378,6 +380,15 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
                 delta = zero
                 loss = justgrpo_loss(p[0], forward, contexts, completions, rewards,
                                      old=old[0] if trafl.ppo_epochs > 1 else None, eps_clip=trafl.eps_clip)
+            elif trafl.arm == "tb_dec":  # RTB with the decoder's exact trajectory law (extensive: beta unscaled)
+                repeated = jnp.broadcast_to(contexts[:, None, :], completions.shape)
+                temp = trafl.rollout_temperature
+                log_p = log_p_decoder_trajectory(forward, p[0], repeated, completions, orders, temp)
+                log_ref = jax.lax.stop_gradient(log_p_decoder_trajectory(reference.forward, reference.params, repeated,
+                                                                         completions, orders, temp))
+                centered = rewards - rewards.mean(axis=1, keepdims=True)
+                delta = log_p - log_ref - trafl.beta * centered + log_z_forward(p[1], contexts)[:, None]
+                loss = jnp.mean(delta**2)
             elif trafl.arm in ("db", "subtb"):  # relative flow balance; the log Z head is the state flow V(s)
                 delta = zero
                 args = (p[0], p[1], forward, log_z_forward, reference, contexts, completions, orders, rewards, trafl.beta)

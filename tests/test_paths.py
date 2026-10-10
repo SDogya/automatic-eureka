@@ -116,3 +116,26 @@ def test_diversity_metric() -> None:
     assert top == pytest.approx(10 * (1 - (1 - 1 / n) ** k))
     point = np.zeros(n); point[3] = 1.0
     assert diversity(point, np.array([3]), k) == pytest.approx((1.0, 1.0, 1.0))
+
+
+def test_decoder_trajectory_law_matches_numpy_and_normalises(tables) -> None:
+    """The JAX decoder step law equals metrics.decoders.proposal_step_law; summed over every (completion, order) of a
+    u = 3 prompt the decoder trajectory law is 1."""
+    from itertools import permutations, product
+    from src.metrics.decoders import proposal_step_law
+    from src.rl.losses.trajectory_balance import log_p_decoder_trajectory, proposal_step_log_law
+    contexts, _, pol = tables
+    ids = np.random.default_rng(4).choice(np.flatnonzero(contexts.known < LENGTH), 64, replace=False)
+    for t in (1.0, 0.6):
+        jax_law = np.exp(np.asarray(proposal_step_log_law(forward(POL, jnp.asarray(contexts.tokens[ids])),
+                                                          jnp.asarray(contexts.tokens[ids] == MASK), t), dtype=np.float64))
+        np.testing.assert_allclose(jax_law, proposal_step_law(pol[ids], contexts.tokens[ids] == MASK, t), atol=2e-5)
+    prompt = np.array([0, MASK, 2, MASK, 1, MASK, 3, 0])
+    rows, orders = [], []
+    for letters in product(range(4), repeat=3):
+        y = prompt.copy(); y[[1, 3, 5]] = letters
+        for o in permutations([1, 3, 5]):
+            rows.append(y); orders.append(list(o) + [-1] * 5)
+    ys, os_ = jnp.asarray(np.array(rows)), jnp.asarray(np.array(orders, dtype=np.int32))
+    total = jnp.exp(log_p_decoder_trajectory(forward, POL, jnp.broadcast_to(jnp.asarray(prompt), ys.shape), ys, os_, 0.6)).sum()
+    assert float(total) == pytest.approx(1.0, abs=1e-4)

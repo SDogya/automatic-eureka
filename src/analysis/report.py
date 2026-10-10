@@ -29,8 +29,9 @@ from .runs import ARM_KNOBS, Run, find_runs  # noqa: E402
 ARM_ORDER = tuple(ARM_KNOBS)   # fixed slot per arm
 # 8 validated categorical slots; arms 9-10 (db, subtb) reuse slots 2 and 7 (the balance family: tb, entppo) with their
 # own markers, so identity never rests on colour alone (legend + marker + table view)
-PALETTE = ("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948", "#eb6834", "#4a3aa7")
-MARKERS = ("o", "s", "^", "D", "v", "P", "X", "*", "h", "p")
+PALETTE = ("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948", "#eb6834", "#4a3aa7",
+           "#eb6834")
+MARKERS = ("o", "s", "^", "D", "v", "P", "X", "*", "h", "p", "<")
 LINES = ("-", "--", ":", "-.")   # configurations within one arm (colour = arm, line style = configuration)
 SHORT = {"beta": "β", "kappa": "κ", "estimator": "", "mask_scheme": "", "mask_samples": "×", "var_lambda": "λvar",
          "ppo_epochs": "μ", "gae_lambda": "gae", "rspo_lambda": "λ", "subtb_lambda": "λsub", "rollout": "",

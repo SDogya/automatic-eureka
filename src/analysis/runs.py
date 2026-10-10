@@ -26,6 +26,7 @@ ARM_KNOBS = {
     "rspo": ("rspo_lambda", "advantage_std", "mask_scheme", "mask_samples", "rollout", "rollout_temperature"),
     "db": ("beta",),
     "subtb": ("beta", "subtb_lambda"),
+    "tb_dec": ("beta", "rollout_temperature"),
 }
 SHARED = ("context_source", "contexts", "group", "learning_rate", "reference", "ppo_epochs", "steps")
 

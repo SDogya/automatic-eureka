@@ -33,7 +33,7 @@ def main() -> None:
     parser.add_argument("--no-plateau-stop", dest="stop_on_plateau", action="store_false")
     parser.add_argument("--only", choices=("finetune", "random_init"), help="Train one start only")
     parser.add_argument("--arm", choices=("trafl", "tb", "espo", "espo_ppo", "grpo", "justgrpo", "entppo", "rspo",
-                                          "db", "subtb"),
+                                          "db", "subtb", "tb_dec"),
                         default="trafl")
     parser.add_argument("--gae-lambda", type=float, default=0.7, help="entppo GAE lambda")
     parser.add_argument("--eval-steps", type=int, nargs="*", default=[],

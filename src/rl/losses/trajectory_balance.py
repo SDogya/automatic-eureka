@@ -60,3 +60,35 @@ def trajectory_residuals(params: tuple[object, object], forward: Forward, log_z:
 def trajectory_balance_loss(*args: object, **kwargs: object) -> jax.Array:
     """Mean squared residual; same arguments as trajectory_residuals."""
     return jnp.mean(trajectory_residuals(*args, **kwargs) ** 2)
+
+
+def proposal_step_log_law(logits: jax.Array, hidden: jax.Array, temperature: float) -> jax.Array:
+    """log P(i, v | s) of the low-confidence-remasking decoder (JAX, differentiable; the numpy twin is
+    metrics.decoders.proposal_step_law): proposals at temperature T, scored by untempered probability, highest
+    committed, lowest index on ties. logits (..., L, 4), hidden (..., L) -> (..., L, 4); -inf off the hidden set."""
+    length = logits.shape[-2]
+    conf = jax.nn.softmax(logits, axis=-1)
+    q = jax.nn.softmax(logits / temperature, axis=-1)
+    later = jnp.arange(length)[None, :] > jnp.arange(length)[:, None]                     # [i, j]: j after i
+    ci, cj = conf[..., :, :, None, None], conf[..., None, None, :, :]
+    not_beaten = jnp.where(later[:, None, :, None], cj <= ci, cj < ci)                    # (..., i, v, j, v_j)
+    p_j = jnp.sum(q[..., None, None, :, :] * not_beaten, axis=-1)                         # (..., i, v, j)
+    others = hidden[..., None, None, :] & (jnp.arange(length)[:, None, None] != jnp.arange(length)[None, None, :])
+    log_p = jnp.log(q) + jnp.sum(jnp.where(others, jnp.log(jnp.maximum(p_j, 1e-30)), 0.0), axis=-1)
+    return jnp.where(hidden[..., None], log_p, -jnp.inf)
+
+
+def log_p_decoder_trajectory(forward: Forward, params: object, contexts: jax.Array, completions: jax.Array,
+                             orders: jax.Array, temperature: float) -> jax.Array:
+    """Exact log P(tau | x) of a trajectory under the low-confidence-remasking decoder (shapes as log_p_trajectory)."""
+    length = completions.shape[-1]
+    valid = orders >= 0
+    safe = jnp.where(valid, orders, 0)
+    revealed_now = jax.nn.one_hot(safe, length, dtype=jnp.int32) * valid[..., None]
+    revealed_before = jnp.cumsum(revealed_now, axis=-2) - revealed_now
+    states = jnp.where(revealed_before > 0, completions[..., None, :], contexts[..., None, :])  # (..., T, L)
+    law = proposal_step_log_law(forward(params, states), states == MASK, temperature)        # (..., T, L, 4)
+    at_position = jnp.take_along_axis(law, safe[..., None, None], axis=-2)[..., 0, :]
+    letters = jnp.take_along_axis(completions, safe, axis=-1)
+    chosen = jnp.take_along_axis(at_position, letters[..., None], axis=-1)[..., 0]
+    return jnp.sum(jnp.where(valid, chosen, 0.0), axis=-1)
