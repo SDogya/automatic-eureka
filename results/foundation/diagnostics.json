@@ -1,0 +1,323 @@
+{
+  "reward_law": {
+    "entropy": 4.337469507168986,
+    "support99": 1433
+  },
+  "pretraining_law": {
+    "entropy": 2.827151287092166,
+    "support99": 93
+  },
+  "pretraining_sample": {
+    "rows": 10000,
+    "distinct": 160,
+    "potts_mass_on_sample": 0.9936129242784898
+  },
+  "references": {
+    "mlp_1": {
+      "architecture": {
+        "family": "mlp",
+        "width": 2
+      },
+      "parameters": 184,
+      "entropy": 4.704471365986468,
+      "support99": 2983,
+      "mass_on_sample": 0.7224490912763621,
+      "kl_empirical_to_ref": 1.1267028383681867,
+      "kl_potts_to_ref": 1.0859910808832995,
+      "order_imbalance": 0.08850446520186317,
+      "decoders": {
+        "random_order": {
+          "entropy": 4.704471365986468,
+          "expected_score": 0.37507153389203396
+        },
+        "left_to_right": {
+          "entropy": 4.764913644194035,
+          "expected_score": 0.3818228989021729
+        },
+        "low_confidence_T0.6": {
+          "entropy": 0.7573142352169577,
+          "expected_score": 0.2810271740707179
+        }
+      },
+      "trafl_target": {
+        "0.5": {
+          "entropy": 2.3580313974145874,
+          "support99": 141,
+          "mass_where_ref_below_1e-6": 0.00020098917850351736,
+          "expected_score": 0.7206609878516661,
+          "kl_to_ref": 1.660777657983742
+        },
+        "1.5": {
+          "entropy": 1.5441707879089088,
+          "support99": 15,
+          "mass_where_ref_below_1e-6": 0.0005104708561886879,
+          "expected_score": 0.7645608979551932,
+          "kl_to_ref": 2.3925365802151273
+        },
+        "4.5": {
+          "entropy": 1.0753759450619618,
+          "support99": 8,
+          "mass_where_ref_below_1e-6": 0.6974206710593633,
+          "expected_score": 0.9252009084307378,
+          "kl_to_ref": 11.787129978738513
+        }
+      }
+    },
+    "mlp_3": {
+      "architecture": {
+        "family": "mlp",
+        "width": 8
+      },
+      "parameters": 688,
+      "entropy": 3.184712009961606,
+      "support99": 295,
+      "mass_on_sample": 0.9540036136396266,
+      "kl_empirical_to_ref": 0.15213905622311297,
+      "kl_potts_to_ref": 0.140934213635572,
+      "order_imbalance": 0.09466198619238853,
+      "decoders": {
+        "random_order": {
+          "entropy": 3.184712009961606,
+          "expected_score": 0.3549048648076719
+        },
+        "left_to_right": {
+          "entropy": 3.132569859916197,
+          "expected_score": 0.36513098500775487
+        },
+        "low_confidence_T0.6": {
+          "entropy": 0.7525199789026621,
+          "expected_score": 0.2844406592743783
+        }
+      },
+      "trafl_target": {
+        "0.5": {
+          "entropy": 1.344973777985027,
+          "support99": 46,
+          "mass_where_ref_below_1e-6": 8.194765026384687e-05,
+          "expected_score": 0.6965866040121461,
+          "kl_to_ref": 1.5382143783792763
+        },
+        "1.5": {
+          "entropy": 1.2589491051690482,
+          "support99": 10,
+          "mass_where_ref_below_1e-6": 9.082599545982809e-06,
+          "expected_score": 0.7802803812270531,
+          "kl_to_ref": 2.8570854820528018
+        },
+        "4.5": {
+          "entropy": 0.12864091515513412,
+          "support99": 2,
+          "mass_where_ref_below_1e-6": 1.8845833429688254e-09,
+          "expected_score": 0.9455983848561007,
+          "kl_to_ref": 8.279557811396636
+        }
+      }
+    },
+    "mlp_5": {
+      "architecture": {
+        "family": "mlp",
+        "width": 32
+      },
+      "parameters": 3424,
+      "entropy": 2.8667032958866208,
+      "support99": 166,
+      "mass_on_sample": 0.9809155081443104,
+      "kl_empirical_to_ref": 0.06426996543965043,
+      "kl_potts_to_ref": 0.05622210898708025,
+      "order_imbalance": 0.03713367705512205,
+      "decoders": {
+        "random_order": {
+          "entropy": 2.8667032958866208,
+          "expected_score": 0.3537041457651203
+        },
+        "left_to_right": {
+          "entropy": 2.8905060544937955,
+          "expected_score": 0.33556851455801884
+        },
+        "low_confidence_T0.6": {
+          "entropy": 0.7225385813301933,
+          "expected_score": 0.2919800086431833
+        }
+      },
+      "trafl_target": {
+        "0.5": {
+          "entropy": 1.1554608249227714,
+          "support99": 33,
+          "mass_where_ref_below_1e-6": 8.548197476819398e-05,
+          "expected_score": 0.6957635813368483,
+          "kl_to_ref": 1.5156457221666493
+        },
+        "1.5": {
+          "entropy": 1.1763146114604695,
+          "support99": 8,
+          "mass_where_ref_below_1e-6": 9.468293070344131e-06,
+          "expected_score": 0.8089757323474152,
+          "kl_to_ref": 3.3064752669309088
+        },
+        "4.5": {
+          "entropy": 0.041413500058268646,
+          "support99": 1,
+          "mass_where_ref_below_1e-6": 6.953217533094429e-10,
+          "expected_score": 0.9466829743990484,
+          "kl_to_ref": 7.394522978613531
+        }
+      }
+    },
+    "mlp_7": {
+      "architecture": {
+        "family": "mlp",
+        "width": 128
+      },
+      "parameters": 25888,
+      "entropy": 2.8961531821200883,
+      "support99": 165,
+      "mass_on_sample": 0.984446387706226,
+      "kl_empirical_to_ref": 0.034097152844849606,
+      "kl_potts_to_ref": 0.030701344326921974,
+      "order_imbalance": 0.027493502812475867,
+      "decoders": {
+        "random_order": {
+          "entropy": 2.8961531821200883,
+          "expected_score": 0.35578553809077496
+        },
+        "left_to_right": {
+          "entropy": 2.8562320717241327,
+          "expected_score": 0.35353011469438955
+        },
+        "low_confidence_T0.6": {
+          "entropy": 0.8105104454137819,
+          "expected_score": 0.28973077041572176
+        }
+      },
+      "trafl_target": {
+        "0.5": {
+          "entropy": 1.2633425292624314,
+          "support99": 35,
+          "mass_where_ref_below_1e-6": 9.246888175100978e-05,
+          "expected_score": 0.6967140892262773,
+          "kl_to_ref": 1.5107972739091882
+        },
+        "1.5": {
+          "entropy": 1.2040303683657583,
+          "support99": 9,
+          "mass_where_ref_below_1e-6": 9.139137383099892e-06,
+          "expected_score": 0.8213866736210909,
+          "kl_to_ref": 3.4945533077260587
+        },
+        "4.5": {
+          "entropy": 0.03155322248221266,
+          "support99": 1,
+          "mass_where_ref_below_1e-6": 4.990949649259432e-10,
+          "expected_score": 0.9467838521572511,
+          "kl_to_ref": 7.172879910752409
+        }
+      }
+    },
+    "transformer_d32_l2_h4_f128": {
+      "architecture": {
+        "family": "transformer",
+        "d_model": 32,
+        "layers": 2,
+        "heads": 4,
+        "ff": 128
+      },
+      "parameters": 26020,
+      "entropy": 2.9335572806527552,
+      "support99": 252,
+      "mass_on_sample": 0.976626122053486,
+      "kl_empirical_to_ref": 0.07792668492802313,
+      "kl_potts_to_ref": 0.07180381467620939,
+      "order_imbalance": 0.054186131172015095,
+      "decoders": {
+        "random_order": {
+          "entropy": 2.9335572806527552,
+          "expected_score": 0.3724045306286309
+        },
+        "left_to_right": {
+          "entropy": 2.9965746121472243,
+          "expected_score": 0.37301401991876937
+        },
+        "low_confidence_T0.6": {
+          "entropy": 1.1649848202421684,
+          "expected_score": 0.2932820128594845
+        }
+      },
+      "trafl_target": {
+        "0.5": {
+          "entropy": 1.1107082278690292,
+          "support99": 33,
+          "mass_where_ref_below_1e-6": 8.625590816496205e-05,
+          "expected_score": 0.6994661576066491,
+          "kl_to_ref": 1.3805241054545165
+        },
+        "1.5": {
+          "entropy": 1.177915944174221,
+          "support99": 8,
+          "mass_where_ref_below_1e-6": 1.1947965915132659e-05,
+          "expected_score": 0.7967311406595206,
+          "kl_to_ref": 2.9376583786433996
+        },
+        "4.5": {
+          "entropy": 0.05404893232440191,
+          "support99": 1,
+          "mass_where_ref_below_1e-6": 8.212971426763198e-10,
+          "expected_score": 0.9465488617644041,
+          "kl_to_ref": 7.466322629884083
+        }
+      }
+    },
+    "transformer_d128_l2_h8_f512": {
+      "architecture": {
+        "family": "transformer",
+        "d_model": 128,
+        "layers": 2,
+        "heads": 8,
+        "ff": 512
+      },
+      "parameters": 398980,
+      "entropy": 2.8933821023704183,
+      "support99": 188,
+      "mass_on_sample": 0.9834842862995649,
+      "kl_empirical_to_ref": 0.058763448836534185,
+      "kl_potts_to_ref": 0.05668499385855511,
+      "order_imbalance": 0.04104306830905102,
+      "decoders": {
+        "random_order": {
+          "entropy": 2.8933821023704183,
+          "expected_score": 0.37167985902567036
+        },
+        "left_to_right": {
+          "entropy": 2.892034848006333,
+          "expected_score": 0.38273863803654784
+        },
+        "low_confidence_T0.6": {
+          "entropy": 1.2365398559231946,
+          "expected_score": 0.33610518162761394
+        }
+      },
+      "trafl_target": {
+        "0.5": {
+          "entropy": 1.084974684678448,
+          "support99": 29,
+          "mass_where_ref_below_1e-6": 9.861714417437897e-05,
+          "expected_score": 0.6983046904397718,
+          "kl_to_ref": 1.3726246568509677
+        },
+        "1.5": {
+          "entropy": 1.1282910161318007,
+          "support99": 7,
+          "mass_where_ref_below_1e-6": 3.2435522568693176e-05,
+          "expected_score": 0.7912758754397344,
+          "kl_to_ref": 2.8706038629693698
+        },
+        "4.5": {
+          "entropy": 0.04061378696404307,
+          "support99": 1,
+          "mass_where_ref_below_1e-6": 3.8328443619935714e-08,
+          "expected_score": 0.9466888887384163,
+          "kl_to_ref": 7.535531926806461
+        }
+      }
+    }
+  }
+}

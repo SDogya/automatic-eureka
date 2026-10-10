@@ -56,3 +56,39 @@ def proposal_terminal_log_probs(contexts: Contexts, log_cond: FloatArray, temper
     full = mass[contexts.full_ids]
     with np.errstate(divide="ignore"):
         return np.log(full)
+
+
+def proposal_hellinger(contexts: Contexts, log_cond_p: FloatArray, log_cond_q: FloatArray, temperature: float,
+                       chunk: int = 16384) -> tuple[float, float, float]:
+    """(h2_traj, h2_term, h2_traj - h2_term) between two denoisers under the decoder, from the empty prompt.
+
+    Squared Hellinger distance h2 = 1 - BC with BC the Bhattacharyya coefficient. The trajectory BC is the forward
+    recursion m(child) += m(s) * sqrt(P(a | s) Q(a | s)) over the 5^L partial strings; the terminal BC is
+    sum_y sqrt(p(y) q(y)). By data processing h2_traj >= h2_term; their difference is the path part, bounded in
+    [0, 1] and finite under near-deterministic decoders where path KL is not (gfn_lab S2's measure)."""
+    length = contexts.tokens.shape[1]
+    m = np.zeros(len(contexts.tokens), dtype=np.float64)
+    mass_p = np.zeros_like(m)
+    mass_q = np.zeros_like(m)
+    m[-1] = mass_p[-1] = mass_q[-1] = 1.0
+    for count in range(0, length):
+        ids = np.flatnonzero(contexts.known == count)
+        for start in range(0, len(ids), chunk):
+            parents = ids[start:start + chunk]
+            parents = parents[(mass_p[parents] > 0) | (mass_q[parents] > 0)]
+            if len(parents) == 0:
+                continue
+            hidden = contexts.tokens[parents] == MASK
+            law_p = proposal_step_law(log_cond_p[parents], hidden, temperature)
+            law_q = proposal_step_law(log_cond_q[parents], hidden, temperature)
+            bc = np.sqrt(law_p * law_q)
+            for position in range(length):
+                for letter in range(MASK):
+                    children = parents - (MASK - letter) * contexts.powers[position]
+                    np.add.at(m, children, m[parents] * bc[:, position, letter])
+                    np.add.at(mass_p, children, mass_p[parents] * law_p[:, position, letter])
+                    np.add.at(mass_q, children, mass_q[parents] * law_q[:, position, letter])
+    full = contexts.full_ids
+    h2_traj = 1.0 - float(m[full].sum())
+    h2_term = 1.0 - float(np.sqrt(mass_p[full] * mass_q[full]).sum())
+    return h2_traj, h2_term, h2_traj - h2_term
