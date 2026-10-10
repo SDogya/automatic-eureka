@@ -1,0 +1,102 @@
+{
+  "config": {
+    "reward": "potts",
+    "beta": 0.75,
+    "temperature": 1.0,
+    "seed": 42,
+    "samples": 10000,
+    "burn_tv": 0.0001,
+    "correlation_bound": 0.01,
+    "diagnostic_limit": 50000,
+    "mask_probability": 0.5,
+    "epochs": 100,
+    "batch_size": 256,
+    "learning_rate": 0.001,
+    "eval_every": 10,
+    "validation_fraction": 0.1,
+    "eval_batch_size": 8192,
+    "data_dir": "data/potts_b0.75",
+    "plots_dir": "data/potts_b0.75",
+    "models_dir": "models/pretrain_b0.75",
+    "hidden_exponents": [
+      3,
+      5,
+      7
+    ],
+    "architecture": {
+      "family": "mlp",
+      "width": 80
+    },
+    "transformer_sizes": [
+      {
+        "family": "transformer",
+        "d_model": 32,
+        "layers": 2,
+        "heads": 4,
+        "ff": 128
+      }
+    ]
+  },
+  "reference_modes": [
+    "TTTGGGCC",
+    "CGGTCGCG",
+    "CTATCGCA",
+    "TCTGCGGC"
+  ],
+  "software": {
+    "python": "3.14.0",
+    "jax": "0.11.2",
+    "jaxlib": "0.11.2",
+    "optax": "0.2.8",
+    "numpy": "2.5.3",
+    "pydantic": "2.13.5",
+    "pyarrow": "25.0.1",
+    "matplotlib": "3.11.2"
+  },
+  "diagnostics": {
+    "burn_steps": 665,
+    "save_every": 415,
+    "burn_tv": 0.00009953704383543189,
+    "correlation_bounds": [
+      0.0030689674285113875,
+      0.00990092432747906,
+      0.007210804873518166,
+      0.006921106221135357,
+      0.004836899405430104
+    ],
+    "stationarity_error": 6.938893903907228e-18,
+    "detailed_balance_error": 1.0842021724855044e-19,
+    "expected_acceptance": 0.2503413935575157
+  },
+  "acceptance_rate": 0.24967638554216867,
+  "target_log_normalizer": 17.340657967405072,
+  "target_basin_means": [
+    0.2671037375490012,
+    0.3144868441043682,
+    0.2590061397435551,
+    0.15940327860307515
+  ],
+  "mcmc": {
+    "reward_tv": 0.007447640830266048,
+    "full_tv": 0.21702765112198436,
+    "basin_means": [
+      0.2699583333333336,
+      0.31895833333333434,
+      0.25422500000000003,
+      0.15685833333333302
+    ],
+    "mean_log_reward": 10.375246064531897
+  },
+  "exact_sample": {
+    "reward_tv": 0.014604740727864706,
+    "full_tv": 0.2133270290489888,
+    "basin_means": [
+      0.26730000000000026,
+      0.31090000000000095,
+      0.26068333333333343,
+      0.16111666666666627
+    ],
+    "mean_log_reward": 10.3911097362684
+  },
+  "dataset_sha256": "de68e57953606d25fa24021d0ee3b8fec262b00f054d4d312974bebdff9197be"
+}

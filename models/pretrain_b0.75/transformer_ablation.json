@@ -1,0 +1,17 @@
+{
+  "rows": [
+    {
+      "tag": "d32_l2_h4_f128",
+      "d_model": 32,
+      "layers": 2,
+      "heads": 4,
+      "ff": 128,
+      "parameter_count": 26020,
+      "best_epoch": 100,
+      "best_validation_loss": 3.587990305806834,
+      "best_kl": 0.14397007908554643,
+      "final_kl": 0.14397007908554643,
+      "wall_seconds": 104.35721250000643
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "rows": [
+    {
+      "exponent": 3,
+      "hidden_width": 8,
+      "parameter_count": 688,
+      "best_epoch": 100,
+      "best_validation_loss": 3.69280119799954,
+      "best_kl": 0.3570531749533032,
+      "final_kl": 0.3570531749533032
+    },
+    {
+      "exponent": 5,
+      "hidden_width": 32,
+      "parameter_count": 3424,
+      "best_epoch": 100,
+      "best_validation_loss": 3.5523523018158913,
+      "best_kl": 0.0990320075704535,
+      "final_kl": 0.0990320075704535
+    },
+    {
+      "exponent": 7,
+      "hidden_width": 128,
+      "parameter_count": 25888,
+      "best_epoch": 80,
+      "best_validation_loss": 3.5206405270166656,
+      "best_kl": 0.052004627361227636,
+      "final_kl": 0.06871339390040891
+    }
+  ]
+}
