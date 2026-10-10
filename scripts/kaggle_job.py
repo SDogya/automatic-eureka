@@ -3,7 +3,8 @@
     python scripts/kaggle_job.py bundle                          # git archive of HEAD -> private dataset <user>/ae-bundle
     python scripts/kaggle_job.py push <job> <jobs.txt> <grid>    # one kernel; runs every line of jobs.txt, 4 at a time
     python scripts/kaggle_job.py status <job>
-    python scripts/kaggle_job.py pull <job>                      # outputs -> models/<grid>/..., never overwriting
+    python scripts/kaggle_job.py pull <job> [all]                # outputs -> models/<grid>/..., never overwriting;
+                                                                 # analysis files only unless "all" (checkpoints)
 
 jobs.txt: one run per line, "<name> <seed> <sweep args...>"; a line "COMMON <args...>" sets arguments shared by all.
 Remotely: `uv sync --frozen` installs the exact lockfile environment (Python 3.14, jax, optax, ...); then the gate
@@ -112,7 +113,11 @@ def status(job: str) -> None:
 def pull(job: str) -> None:
     d = WORK / "out" / job
     d.mkdir(parents=True, exist_ok=True)
-    r = subprocess.run(["kaggle", "kernels", "output", f"{USER}/ae-{job}", "-p", str(d)], capture_output=True, text=True)
+    # paged and retried (the CLI returns one 20-file page and aborts on transient SSL errors); analysis files by
+    # default, checkpoints too with `pull <job> all`; uses the Python that has the `kaggle` package
+    pattern = ".*" if len(sys.argv) > 3 and sys.argv[3] == "all" else r"\.(csv|json|log|png)$"
+    r = subprocess.run(["python3", str(ROOT / "scripts" / "kaggle_pull_pages.py"), f"{USER}/ae-{job}", str(d), pattern],
+                       capture_output=True, text=True)
     print(r.stdout[-300:], r.stderr[-300:])
     new = skipped = 0
     for src in (d / "out").rglob("*") if (d / "out").exists() else []:
