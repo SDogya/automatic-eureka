@@ -88,6 +88,21 @@ terminal law settles inside the band, path / terminal by update window:
   this base.
 - Blocks B (penalty at β 4.5) and C (references k = 3, 7, transformer d32): kernel `ae-grid2-b`, pending.
 
+**The 4-paired vs 32-independent puzzle** (`scripts/mask_penalty.py`, `mask_penalty.json`). The paper's 4 paired
+masks drift more than this repo's 32 independent masks: late ratio 0.54 vs 0.25 at β 0.5. The hypothesis was that
+pairing weakens the implicit penalty Var_masks(average); measured, it is refuted.
+
+| on the policy trained by | 32 independent | 4 independent | 4 = 2 complementary pairs | single-mask σ² |
+|---|---|---|---|---|
+| TraFL 32 IID | 0.0033 | 0.026 | 0.013 | 0.104 |
+| TraFL comp 4 | 0.0027 | 0.021 | 0.0086 | 0.085 |
+
+Independent masks give σ²/K. Pairing halves the 4-mask penalty but leaves it 3–4× *larger* than 32 independent
+masks, so the drift difference is not the penalty's size. Untested candidates:
+- comp pairs never draw the full mask, so they estimate a truncated ELBO with a different fixed point (mean score
+  0.063 vs 0.096 on the same completions);
+- the anchor in gfn_lab's identity is the variance across *orders*, which a mask-average variance does not measure.
+
 ## 4. Results on the broader base (grid 3): pending
 
 `results/port_grid3/SPEC.md` (54 runs; readings R1–R4 stated before running).

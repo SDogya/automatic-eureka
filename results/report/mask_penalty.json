@@ -1,0 +1,47 @@
+{
+ "reference (theta = ref)": {
+  "32 independent": {
+   "penalty_mean": 0.0,
+   "score_mean": 0.0
+  },
+  "4 independent": {
+   "penalty_mean": 0.0,
+   "score_mean": 0.0
+  },
+  "4 = 2 complementary pairs": {
+   "penalty_mean": 0.0,
+   "score_mean": 0.0
+  },
+  "single-mask variance (sigma^2)": 0.0
+ },
+ "TraFL 32 IID, beta 0.5, update 10k": {
+  "32 independent": {
+   "penalty_mean": 0.0032722523901611567,
+   "score_mean": 0.09564470499753952
+  },
+  "4 independent": {
+   "penalty_mean": 0.02623630501329899,
+   "score_mean": 0.09572501480579376
+  },
+  "4 = 2 complementary pairs": {
+   "penalty_mean": 0.013379697687923908,
+   "score_mean": 0.06280069798231125
+  },
+  "single-mask variance (sigma^2)": 0.10435295850038528
+ },
+ "TraFL comp 4, beta 0.5, update 10k": {
+  "32 independent": {
+   "penalty_mean": 0.0026575245428830385,
+   "score_mean": 0.02961370162665844
+  },
+  "4 independent": {
+   "penalty_mean": 0.021234095096588135,
+   "score_mean": 0.029691681265830994
+  },
+  "4 = 2 complementary pairs": {
+   "penalty_mean": 0.00860772654414177,
+   "score_mean": 0.025568632408976555
+  },
+  "single-mask variance (sigma^2)": 0.08476705104112625
+ }
+}
