@@ -55,8 +55,12 @@ lines = [l.split() for l in JOBS.strip().splitlines() if l.strip()]
 common = " ".join(next((l[1:] for l in lines if l[0] == "COMMON"), []))
 with open(os.path.join(root, "jobs.cmd"), "w") as f:
     for name, seed, *args in (l for l in lines if l[0] != "COMMON"):
+        # copy each run's folder and log to the output as soon as it ends, so a session timeout loses only unfinished runs
         f.write(f"{env} uv run --no-sync python -m src.rl.sweep {common} --seed {seed} --output models/{GRID}/{name} "
-                f"{' '.join(args)} > models/{GRID}/logs/{name}_s{seed}.log 2>&1 && echo done {name} s{seed} || echo FAILED {name} s{seed}\n")
+                f"{' '.join(args)} > models/{GRID}/logs/{name}_s{seed}.log 2>&1 && echo done {name} s{seed} || echo FAILED {name} s{seed}; "
+                f"mkdir -p /kaggle/working/out/{GRID}/{name} /kaggle/working/out/{GRID}/logs; "
+                f"cp -r models/{GRID}/{name}/. /kaggle/working/out/{GRID}/{name}/; "
+                f"cp models/{GRID}/logs/{name}_s{seed}.log /kaggle/working/out/{GRID}/logs/\n")
 run("cat jobs.cmd | xargs -P 4 -I CMD bash -c CMD", check=False)
 out = "/kaggle/working/out"
 for d, _, files in os.walk(os.path.join(root, "models", GRID)):
