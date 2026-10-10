@@ -41,7 +41,8 @@ DEFAULTS = {"normalization": "paper", "eps_clip": 0.2, "advantage_std": True, "v
 
 def short_label(run: Run, vary_arch: bool, vary_start: bool) -> str:
     """Arm plus its knobs, compactly; architecture / start only when they vary across the report."""
-    knobs = [f"{SHORT.get(k, k + '=')}{v}" for k, v in run.group[1] if k in SHORT and DEFAULTS.get(k) != v]
+    knobs = [f"{SHORT.get(k, k + '=')}{v}" for k, v in run.group[1]
+             if k in SHORT and v is not None and DEFAULTS.get(k) != v]          # None: run predates the knob = default
     parts = [run.arm, " ".join(knobs)]
     if vary_arch:
         parts.append(run.architecture)

@@ -24,7 +24,10 @@ class Cell(NamedTuple):
 
 
 def matched_value(x: np.ndarray, y: np.ndarray, level: float) -> float:
-    """First crossing of x = level in training order, log-log interpolation of y; NaN if never reached."""
+    """First crossing of x = level in training order, log-log interpolation of y; NaN if never reached or if the run
+    did not record the metric (older runs lack the newer columns)."""
+    if len(x) == 0 or len(x) != len(y):
+        return float("nan")
     ok = np.isfinite(x) & np.isfinite(y) & (x > 0)
     x, y = x[ok], np.maximum(y[ok], 1e-12)          # y can be ~ -1e-9 from float error: clamp, never drop the point
     for i in range(len(x) - 1):
