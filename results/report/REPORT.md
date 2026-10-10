@@ -106,9 +106,57 @@ masks, so the drift difference is not the penalty's size. Untested candidates:
   0.063 vs 0.096 on the same completions);
 - the anchor in gfn_lab's identity is the variance across *orders*, which a mask-average variance does not measure.
 
-## 4. Results on the broader base (grid 3): pending
+## 4. Results on the broader base (grid 3): preliminary, 36 of 54 runs
 
-`results/port_grid3/SPEC.md` (54 runs; readings R1–R4 stated before running).
+Spec: `results/port_grid3/SPEC.md`. Tables and figures: `results/port_grid3/` (`summary.png` compares every
+configuration at matched distance). Pending, the runs of kernel grid3-1:
+- TraFL 32 IID and exact likelihood with uniform rollouts;
+- DB;
+- ESPO-PPO;
+- the comp-4 and ESPO decoder-rollout variants.
+
+![summary](../port_grid3/summary.png)
+
+**R1, drift over training.** Path / terminal ratio, first in-band → last update window:
+
+| | change |
+|---|---|
+| TraFL comp 4 | 0.09 → 0.17–0.19 (≈ 2×, still rising) |
+| TraFL pairwise | 0.08–0.10 → 0.17–0.18 |
+| TraFL exact likelihood, decoder rollouts | 0.08 → 0.24 |
+| **TraFL comp 4 + λ = 1 penalty** | 0.08–0.09 → **0.11** |
+| TB | 0.07 → 0.09–0.10 (+30–45 %, then flat) |
+| SubTB, Ent-PPO | flat |
+
+- The per-string / per-trajectory separation holds on the broader base, and the explicit penalty removes most of it.
+- The stated "balance arms within ±20 %" is mildly violated for TB, which drifts a little before plateauing.
+
+**R2, TraFL estimators** (partial). Pairwise (unbiased, no penalty) ≈ comp 4 (0.17–0.18 vs 0.17–0.19); comp 4 + λ is
+the lowest, so R2's refutation condition is not met. Waiting for 32 IID and uniform-rollout exact likelihood.
+
+**R3, diversity in TraFL's sense.** Distinct top-1 % strings among 16 draws, at matched KL(p ‖ p_ref) = 1:
+
+| arm | random-order sampler | low-confidence decoder |
+|---|---|---|
+| TraFL + λ | 7.87 | 3.75 |
+| TraFL comp 4 | 7.76 | 3.70 |
+| TraFL pairwise | 7.67 | 3.54 |
+| TB | 7.65 | 3.20 |
+| SubTB | 7.62 | 3.20 |
+| Ent-PPO | 7.56 | 3.32 |
+| ESPO | 7.48 | **4.05** |
+| GRPO | 7.18 | 3.17 |
+| RSPO | 6.94 | 3.09 |
+| JustGRPO | 6.93 | 3.02 |
+
+- Under random order, TraFL and the balance arms are the most diverse, and the reward maximisers (GRPO, JustGRPO,
+  RSPO) the least. This is close to the stated prediction, except that RSPO sits with the maximisers.
+- Under the decoder, ESPO leads.
+- Score at matched KL is 0.61–0.65 for every arm (TraFL + λ highest, RSPO and JustGRPO lowest).
+
+**R4, rollout sampler** (partial). RSPO trained on decoder samples gains score at matched KL (0.620 vs 0.605) but
+loses diversity (6.18 vs 6.94 random-order; **1.63 vs 3.09 under the decoder**) and drifts more (path KL 0.101 vs
+0.078). Training on the decoder's own outputs reinforces its mode-seeking.
 
 ## 5. Correctness
 
