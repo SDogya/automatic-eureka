@@ -1,0 +1,30 @@
+{
+ "Potts law, beta 2 (current base)": {
+  "strings_for_99pct": 93,
+  "entropy": 2.8271512870921667
+ },
+ "Potts law, beta 0.75 (broader base)": {
+  "strings_for_99pct": 11205,
+  "entropy": 6.966560732133015
+ },
+ "reference k=5, beta-2 base": {
+  "strings_for_99pct": 166,
+  "entropy": 2.866703295886621
+ },
+ "reference k=5, beta-0.75 base": {
+  "strings_for_99pct": 18521,
+  "entropy": 7.335079614429193
+ },
+ "TraFL target beta 0.5, beta-0.75 reference": {
+  "strings_for_99pct": 1230,
+  "entropy": 3.8986645497373393
+ },
+ "TraFL target beta 1.5, beta-0.75 reference": {
+  "strings_for_99pct": 16,
+  "entropy": 0.9043516589056599
+ },
+ "beta-0.75 reference, low-confidence decoder T 0.6": {
+  "strings_for_99pct": 16,
+  "entropy": 1.5766628960892641
+ }
+}
