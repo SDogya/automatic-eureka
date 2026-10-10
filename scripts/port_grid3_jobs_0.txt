@@ -1,0 +1,19 @@
+COMMON --config configs/potts_tfbind8.json --start models/pretrain_b0.75/mlp_5/best.npz --exponent 5 --steps 10000 --save-every 500 --no-plateau-stop --learning-rate 1e-4 --eval-steps 1 2 4 8 16 32 64 128 256 512 1024 2048 4096
+trafl_pairwise4_b0.25 1 --arm trafl --estimator pairwise --mask-samples 4 --beta 0.25
+tb_b0.25 1 --arm tb --beta 0.25
+entppo_b0.25 1 --arm entppo --ppo-epochs 4 --beta 0.25
+trafl_pairwise4_b0.5 1 --arm trafl --estimator pairwise --mask-samples 4 --beta 0.5
+tb_b0.5 1 --arm tb --beta 0.5
+entppo_b0.5 1 --arm entppo --ppo-epochs 4 --beta 0.5
+espo 1 --arm espo --mask-scheme comp --mask-samples 4 --kappa 0.05
+rspo_dec 1 --arm rspo --mask-samples 4 --rspo-lambda 0.01 --rollout decoder
+justgrpo 1 --arm justgrpo
+trafl_pairwise4_b0.25 2 --arm trafl --estimator pairwise --mask-samples 4 --beta 0.25
+tb_b0.25 2 --arm tb --beta 0.25
+entppo_b0.25 2 --arm entppo --ppo-epochs 4 --beta 0.25
+trafl_pairwise4_b0.5 2 --arm trafl --estimator pairwise --mask-samples 4 --beta 0.5
+tb_b0.5 2 --arm tb --beta 0.5
+entppo_b0.5 2 --arm entppo --ppo-epochs 4 --beta 0.5
+espo 2 --arm espo --mask-scheme comp --mask-samples 4 --kappa 0.05
+rspo_dec 2 --arm rspo --mask-samples 4 --rspo-lambda 0.01 --rollout decoder
+justgrpo 2 --arm justgrpo

@@ -1,0 +1,19 @@
+COMMON --config configs/potts_tfbind8.json --start models/pretrain_b0.75/mlp_5/best.npz --exponent 5 --steps 10000 --save-every 500 --no-plateau-stop --learning-rate 1e-4 --eval-steps 1 2 4 8 16 32 64 128 256 512 1024 2048 4096
+trafl_iid32_b0.25 1 --arm trafl --mask-samples 32 --beta 0.25
+trafl_exactlik_b0.25 1 --arm trafl --estimator exact_lik --beta 0.25
+db_b0.25 1 --arm db --beta 0.25
+trafl_iid32_b0.5 1 --arm trafl --mask-samples 32 --beta 0.5
+trafl_exactlik_b0.5 1 --arm trafl --estimator exact_lik --beta 0.5
+db_b0.5 1 --arm db --beta 0.5
+trafl_comp4_dec_b0.5 1 --arm trafl --mask-scheme comp --mask-samples 4 --beta 0.5 --rollout decoder
+espo_dec 1 --arm espo --mask-scheme comp --mask-samples 4 --kappa 0.05 --rollout decoder
+espo_ppo 1 --arm espo_ppo --mask-scheme comp --mask-samples 4 --kappa 0.05 --ppo-epochs 8
+trafl_iid32_b0.25 2 --arm trafl --mask-samples 32 --beta 0.25
+trafl_exactlik_b0.25 2 --arm trafl --estimator exact_lik --beta 0.25
+db_b0.25 2 --arm db --beta 0.25
+trafl_iid32_b0.5 2 --arm trafl --mask-samples 32 --beta 0.5
+trafl_exactlik_b0.5 2 --arm trafl --estimator exact_lik --beta 0.5
+db_b0.5 2 --arm db --beta 0.5
+trafl_comp4_dec_b0.5 2 --arm trafl --mask-scheme comp --mask-samples 4 --beta 0.5 --rollout decoder
+espo_dec 2 --arm espo --mask-scheme comp --mask-samples 4 --kappa 0.05 --rollout decoder
+espo_ppo 2 --arm espo_ppo --mask-scheme comp --mask-samples 4 --kappa 0.05 --ppo-epochs 8
