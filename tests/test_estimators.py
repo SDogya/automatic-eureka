@@ -77,3 +77,10 @@ def test_u_statistics_reject_dependent_masks() -> None:
     for name in ("split", "pairwise"):
         with _pytest.raises(ValueError):
             residual_loss(name, forward, POLICY, REFERENCE, CONTEXTS, COMPLETIONS, shift, jax.random.key(0), 4, "comp")
+
+
+def test_pairwise_needs_two_masks() -> None:
+    import pytest as _pytest
+    with _pytest.raises(ValueError):
+        residual_loss("pairwise", forward, POLICY, REFERENCE, CONTEXTS, COMPLETIONS, jnp.zeros((3, 2)),
+                      jax.random.key(0), 1, "iid")

@@ -310,6 +310,8 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
     log(f"[{name}] init={init} architecture={arch.spec.model_dump()} start={start} reference={trafl.reference} "
         f"H(target)={float(-target.pi @ target.log_pi):.3f} E_target[y]={float(target.pi @ scores):.4f} -> {output_dir}")
 
+    if trafl.estimator != "square" and trafl.normalization != "paper":
+        raise ValueError("estimators other than square use per-token scores; normalization='elbo' would be ignored")
     if trafl.estimator in ("split", "pairwise") and trafl.mask_scheme != "iid":
         raise ValueError("split / pairwise need independent masks: comp pairs are dependent (biased U-statistic)")
     if trafl.ppo_epochs > 1 and trafl.arm in ("espo", "grpo", "rspo"):

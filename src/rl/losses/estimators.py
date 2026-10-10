@@ -99,6 +99,8 @@ def residual_loss(estimator: Estimator, forward: Forward, policy: object, refere
             raise ValueError("split product uses exactly 4 masks")
         return jnp.mean(deltas[:2].mean(axis=0) * deltas[2:].mean(axis=0)), deltas.mean(axis=0)
     if estimator == "pairwise":
+        if samples < 2:
+            raise ValueError("pairwise needs at least 2 masks")
         total, squares = deltas.sum(axis=0), (deltas**2).sum(axis=0)
         return jnp.mean((total**2 - squares) / (samples * (samples - 1))), deltas.mean(axis=0)
     raise ValueError(estimator)
