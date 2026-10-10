@@ -118,6 +118,14 @@ class EvalMetric(Record):
     llada_expected_log_reward: float = float("nan")
     llada_entropy: float = float("nan")
     llada_kl_to_ref: float = float("nan")    # KL(p_dec,theta || p_dec,ref), both under the same decoder
+    # diversity in TraFL's sense (distinct solutions among k = 16 samples), overall and among the top 1 % of strings by
+    # reward ("correct"), under the random-order law and the decoder; top_mass = probability of a top-1 % string
+    distinct16: float = float("nan")
+    top_mass: float = float("nan")
+    top_distinct16: float = float("nan")
+    llada_distinct16: float = float("nan")
+    llada_top_mass: float = float("nan")
+    llada_top_distinct16: float = float("nan")
 
 
 class TraflReport(Record):
@@ -167,6 +175,12 @@ def ar_log_probs(forward_fn: object, params: object, full_tokens: np.ndarray, ba
                            for s in range(0, len(full_tokens), batch)])
 
 
+def diversity(p: np.ndarray, top: np.ndarray, k: int = 16) -> tuple[float, float, float]:
+    """(E[# distinct strings in k draws], mass on `top`, E[# distinct top strings in k draws]); exact from p."""
+    seen = 1.0 - (1.0 - p) ** k
+    return float(seen.sum()), float(p[top].sum()), float(seen[top].sum())
+
+
 def exact_evaluation(step: int, params: Params, contexts: Contexts, target: Target, pi: Target,
                      scores: np.ndarray, validation: np.ndarray, scratch: Path,
                      forward_fn: object = forward, ref: "ReferenceTables | None" = None) -> tuple[EvalMetric, np.ndarray]:
@@ -182,6 +196,8 @@ def exact_evaluation(step: int, params: Params, contexts: Contexts, target: Targ
         log_dec = proposal_terminal_log_probs(contexts, log_cond, DECODER_T)
         dec = np.exp(log_dec)
         finite = dec > 0
+        top = np.argsort(-pi.log_reward)[: len(pi.log_reward) // 100]
+        d_rand, d_dec = diversity(model, top), diversity(dec, top)
         extra = dict(kl_to_ref=float(model @ (result.log_probs - ref.log_p)), kl_from_ref=paths.kl_term,
                      kl_traj_ref=paths.kl_traj, kl_path_ref=paths.kl_path,
                      expected_log_reward=float(model @ pi.log_reward), entropy=float(-model @ result.log_probs),
@@ -189,7 +205,9 @@ def exact_evaluation(step: int, params: Params, contexts: Contexts, target: Targ
                      ar_kl_to_ref=float(np.exp(log_ar) @ (log_ar - ref.log_p_ar)),   # same decoder both sides
                      llada_expected_score=float(dec @ scores), llada_expected_log_reward=float(dec @ pi.log_reward),
                      llada_entropy=float(-dec[finite] @ log_dec[finite]),
-                     llada_kl_to_ref=float(dec[finite] @ (log_dec[finite] - ref.log_p_llada[finite])))
+                     llada_kl_to_ref=float(dec[finite] @ (log_dec[finite] - ref.log_p_llada[finite])),
+                     distinct16=d_rand[0], top_mass=d_rand[1], top_distinct16=d_rand[2],
+                     llada_distinct16=d_dec[0], llada_top_mass=d_dec[1], llada_top_distinct16=d_dec[2])
     return EvalMetric(
         step=step, kl=result.kl, kl_to_pi=float(pi.pi @ (pi.log_pi - result.log_probs)),
         reverse_kl=float(model @ (result.log_probs - target.log_pi)),

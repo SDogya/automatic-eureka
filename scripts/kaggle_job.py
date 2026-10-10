@@ -8,7 +8,7 @@
 jobs.txt: one run per line, "<name> <seed> <sweep args...>"; a line "COMMON <args...>" sets arguments shared by all.
 Remotely: `uv sync --frozen` installs the exact lockfile environment (Python 3.14, jax, optax, ...); then the gate
 tests must pass (non-zero exit -> kernel status ERROR, nothing runs); then the jobs; settings.json, evals.csv,
-steps.csv, logs and each run's last checkpoint are copied to the output (intermediate checkpoints are dropped).
+steps.csv, logs and every checkpoint are copied to the output (post-hoc metrics at any training step).
 Pitfalls inherited from gfn_lab's runner: Kaggle auto-extracts archives (both layouts are handled); push by hand
 when a slot frees (shell retry loops did not register success); credentials stay in ~/.kaggle.
 """
@@ -60,9 +60,7 @@ with open(os.path.join(root, "jobs.cmd"), "w") as f:
 run("cat jobs.cmd | xargs -P 4 -I CMD bash -c CMD", check=False)
 out = "/kaggle/working/out"
 for d, _, files in os.walk(os.path.join(root, "models", GRID)):
-    keep = [f for f in files if f.endswith((".json", ".csv", ".log", ".png"))]
-    steps = sorted(f for f in files if f.startswith("step_") and f.endswith(".npz"))
-    keep += steps[-1:] + [f for f in files if f.startswith("log_z_") and steps and f.endswith(steps[-1][5:])]
+    keep = [f for f in files if f.endswith((".json", ".csv", ".log", ".png", ".npz"))]   # every checkpoint (small)
     for f in keep:
         target = os.path.join(out, os.path.relpath(d, os.path.join(root, "models")))
         os.makedirs(target, exist_ok=True)

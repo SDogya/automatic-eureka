@@ -104,3 +104,15 @@ def test_decoder_sampler_first_step_matches_step_law(tables) -> None:
     np.add.at(freq, (first, letter), 1.0 / n)
     se = np.sqrt(law * (1 - law) / n)
     assert (np.abs(freq - law) < 5 * se + 2e-4).all(), np.abs(freq - law).max()
+
+
+def test_diversity_metric() -> None:
+    """E[# distinct in k draws]: 1 for a point mass, k * (1 - (1 - 1/n)^k) / ... = n (1 - (1 - 1/n)^k) for uniform."""
+    from src.rl.train import diversity
+    n, k = 100, 16
+    uniform = np.full(n, 1 / n)
+    total, mass, top = diversity(uniform, np.arange(10), k)
+    assert total == pytest.approx(n * (1 - (1 - 1 / n) ** k)) and mass == pytest.approx(0.1)
+    assert top == pytest.approx(10 * (1 - (1 - 1 / n) ** k))
+    point = np.zeros(n); point[3] = 1.0
+    assert diversity(point, np.array([3]), k) == pytest.approx((1.0, 1.0, 1.0))
