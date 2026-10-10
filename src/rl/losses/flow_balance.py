@@ -53,7 +53,8 @@ def subtb_loss(*args: object, lam: float = 0.9, **kwargs: object) -> jax.Array:
     u = steps.sum(axis=-1)[..., None, None]
     valid = (i < j) & (j <= u)
     # lam^(j-i) normalised within each trajectory (torchgfn's "geometric_within"), in log space: no overflow for any lam
-    log_w = jnp.where(valid, (j - i).astype(jnp.float32) * jnp.log(lam), -jnp.inf)
-    weight = jnp.exp(log_w - jnp.max(log_w, axis=(-2, -1), keepdims=True))
+    log_w = jnp.where(valid, (j - i).astype(jnp.float32) * jnp.log(lam), -1e30)
+    weight = jnp.where(valid, jnp.exp(log_w - jnp.max(log_w, axis=(-2, -1), keepdims=True)), 0.0)
     per_trajectory = jnp.sum(weight * res**2, axis=(-2, -1)) / jnp.maximum(jnp.sum(weight, axis=(-2, -1)), 1e-30)
-    return jnp.mean(per_trajectory)
+    has_steps = steps.any(axis=-1)                      # u = 0 trajectories carry no residual
+    return jnp.sum(jnp.where(has_steps, per_trajectory, 0.0)) / jnp.maximum(has_steps.sum(), 1)

@@ -25,8 +25,8 @@ class Cell(NamedTuple):
 
 def matched_value(x: np.ndarray, y: np.ndarray, level: float) -> float:
     """First crossing of x = level in training order, log-log interpolation of y; NaN if never reached."""
-    ok = np.isfinite(x) & np.isfinite(y) & (x > 0) & (y > 0)
-    x, y = x[ok], y[ok]
+    ok = np.isfinite(x) & np.isfinite(y) & (x > 0)
+    x, y = x[ok], np.maximum(y[ok], 1e-12)          # y can be ~ -1e-9 from float error: clamp, never drop the point
     for i in range(len(x) - 1):
         lo, hi = sorted((x[i], x[i + 1]))
         if lo <= level <= hi and hi > lo:
@@ -62,7 +62,7 @@ def ratio_windows(runs: list[Run], windows: tuple[tuple[int, int], ...], band: t
                 step, xs, ys = r.evals["step"], r.evals.get(x), r.evals.get(y)
                 if xs is None or ys is None:
                     continue
-                keep = (step >= lo) & (step <= hi) & (xs >= band[0]) & (xs <= band[1]) & np.isfinite(ys)
+                keep = (step >= lo) & (step < hi) & (xs >= band[0]) & (xs <= band[1]) & np.isfinite(ys)
                 ratios.extend((ys[keep] / xs[keep]).tolist())
             cells.append((float(np.median(ratios)) if ratios else float("nan"), len(ratios)))
         out[group[0].label] = cells

@@ -87,6 +87,8 @@ def residual_loss(estimator: Estimator, forward: Forward, policy: object, refere
         ref = jax.lax.stop_gradient(exact_log_p(reference.forward, reference.params, contexts, completions))
         delta = (exact_log_p(forward, policy, contexts, completions) - ref) / u - shift
         return jnp.mean(delta**2), delta
+    if estimator in ("split", "pairwise") and scheme != "iid":
+        raise ValueError("split / pairwise are unbiased only for independent masks; comp pairs are dependent")
     deltas = per_mask_log_ratio(forward, policy, reference, contexts, completions, key, samples, scheme) - shift[None]
     if estimator == "square":
         return jnp.mean(deltas.mean(axis=0) ** 2), deltas.mean(axis=0)

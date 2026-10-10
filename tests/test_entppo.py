@@ -82,3 +82,21 @@ def test_value_targets_are_soft_reward_to_go_at_lambda_one() -> None:
                            r[None, None], BETA, old=(POLICY, None), gae_lambda=1.0)
     want = float(jnp.mean(v_target**2))                                               # V = 0 so loss = mean target^2
     assert float(stats["value_loss"]) == pytest.approx(want, rel=1e-5)
+
+
+def test_gae_at_lambda_below_one() -> None:
+    """With V = 0 the value targets are the GAE advantages A_t = sum_k lambda^k g_{t+k}; at lambda = 0.7 the value
+    loss equals the mean of A_t^2 over s_0..s_u computed explicitly (lambda = 1 tests cannot see a dropped lambda)."""
+    ys, os_, rewards = all_trajectories()
+    y, o, r = ys[200], os_[200], rewards[200]
+    contexts = jnp.asarray(PROMPT)[None]
+    states = trajectory_states(contexts, y[None, None], o[None, None])[0, 0]
+    log_q = jax.nn.log_softmax(forward(POLICY, states), -1)
+    log_r = jax.nn.log_softmax(forward(REFERENCE.params, states), -1)
+    g = np.array([float(log_r[t, o[t], y[o[t]]] - log_q[t, o[t], y[o[t]]]) for t in range(3)] + [BETA * float(r)])
+    lam = 0.7
+    adv = np.array([sum(lam ** (k - t) * g[k] for k in range(t, 4)) for t in range(4)])
+    zero_value = lambda _, s: jnp.zeros(len(s))  # noqa: E731
+    _, stats = entppo_loss(POLICY, None, forward, zero_value, REFERENCE, contexts, y[None, None], o[None, None],
+                           r[None, None], BETA, old=(POLICY, None), gae_lambda=lam)
+    assert float(stats["value_loss"]) == pytest.approx(float(np.mean(adv**2)), rel=1e-5)

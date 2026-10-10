@@ -33,8 +33,10 @@ PALETTE = ("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4
 MARKERS = ("o", "s", "^", "D", "v", "P", "X", "*", "h", "p")
 LINES = ("-", "--", ":", "-.")   # configurations within one arm (colour = arm, line style = configuration)
 SHORT = {"beta": "β", "kappa": "κ", "estimator": "", "mask_scheme": "", "mask_samples": "×", "var_lambda": "λvar",
-         "ppo_epochs": "μ", "gae_lambda": "gae", "rspo_lambda": "λ", "subtb_lambda": "λsub"}
-DEFAULTS = {"normalization": "paper", "eps_clip": 0.2, "advantage_std": True, "var_lambda": 0.0}
+         "ppo_epochs": "μ", "gae_lambda": "gae", "rspo_lambda": "λ", "subtb_lambda": "λsub", "rollout": "",
+         "rollout_temperature": "T"}
+DEFAULTS = {"normalization": "paper", "eps_clip": 0.2, "advantage_std": True, "var_lambda": 0.0, "rollout": "uniform",
+            "rollout_temperature": 1.0}
 
 
 def short_label(run: Run, vary_arch: bool, vary_start: bool) -> str:

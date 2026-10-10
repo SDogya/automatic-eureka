@@ -202,3 +202,33 @@ def test_rspo_gradient_is_a_scaled_squared_residual() -> None:
     for a, b in zip(jax.tree.leaves(got), jax.tree.leaves(want)):
         np.testing.assert_allclose(a, b, atol=1e-6)
     assert max(float(jnp.abs(g).max()) for g in jax.tree.leaves(got)) > 1e-4
+
+
+def test_clipped_branches_match_explicit_ppo_formulas() -> None:
+    """theta != theta_old: ESPO's sequence-level and JustGRPO's token-level clipped surrogates equal the explicit
+    min(rho A, clip(rho, 1 - eps, 1 + eps) A) with a non-trivial share of clipped ratios (the rho = 1 tests cannot see a
+    flipped min or wrong bounds)."""
+    from src.rl.losses.baselines import ar_token_log_probs
+    old = init_parameters(jax.random.key(13), 16)
+    completions = all_completions(PROMPT)[jnp.asarray([3, 17, 40, 63, 5, 22])].reshape(2, 3, 8)
+    contexts = jnp.stack([PROMPT, PROMPT])
+    rewards = jnp.asarray([[0.3, -1.0, 2.0], [1.5, 0.2, -0.7]])
+    key, eps = jax.random.key(7), 0.2
+    adv = group_advantage(rewards)
+    masks = draw_masks(key, jnp.broadcast_to(contexts[:, None] == MASK, completions.shape), 4, "comp")
+    s = masked_scores(forward, POLICY, completions, masks).mean(0)
+    s_old = masked_scores(forward, old, completions, masks).mean(0)
+    s_ref = masked_scores(forward, REFERENCE.params, completions, masks).mean(0)
+    rho = np.exp(np.asarray(s - s_old))
+    clipped = np.clip(rho, 1 - eps, 1 + eps)
+    want = np.mean(-np.minimum(rho * adv, clipped * adv) + 0.1 * 0.5 * (3 * np.asarray(s - s_ref)) ** 2)
+    got = espo_loss(POLICY, forward, contexts, completions, rewards, key, kappa=0.1, reference=REFERENCE, old=old)
+    assert float(got) == pytest.approx(float(want), rel=1e-5)
+    assert 0.05 < np.mean((rho < 1 - eps) | (rho > 1 + eps)) < 0.95
+    tok = ar_token_log_probs(forward, POLICY, PROMPT[None], completions[:1])
+    tok_old = ar_token_log_probs(forward, old, PROMPT[None], completions[:1])
+    r = np.exp(np.asarray(tok.values - tok_old.values))
+    a = np.asarray(group_advantage(rewards[:1]))[..., None]
+    per = np.where(np.asarray(tok.valid), np.minimum(r * a, np.clip(r, 1 - eps, 1 + eps) * a), 0).sum(-1) / 3
+    got = justgrpo_loss(POLICY, forward, PROMPT[None], completions[:1], rewards[:1], old=old)
+    assert float(got) == pytest.approx(float(-per.mean()), rel=1e-5)

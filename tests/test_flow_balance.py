@@ -55,3 +55,12 @@ def test_gradients_reach_policy_and_value() -> None:
     for g in (g_pol, g_val):
         assert all(np.isfinite(np.asarray(x)).all() for x in jax.tree.leaves(g))
         assert max(float(jnp.abs(x).max()) for x in jax.tree.leaves(g)) > 1e-4
+
+
+def test_subtb_ignores_trajectories_without_steps() -> None:
+    contexts = jnp.concatenate([CONTEXTS, jnp.asarray([[0, 1, 2, 3, 0, 1, 2, 3]])])
+    completions = jnp.concatenate([COMPLETIONS, jnp.asarray([[[0, 1, 2, 3, 0, 1, 2, 3]] * 2])])
+    orders = jnp.concatenate([ORDERS, jnp.full((1, 2, 8), -1)])
+    rewards = jnp.concatenate([REWARDS, jnp.zeros((1, 2))])
+    with_empty = subtb_loss(POLICY, VALUE, forward, log_z_forward, REFERENCE, contexts, completions, orders, rewards, BETA)
+    np.testing.assert_allclose(with_empty, subtb_loss(*ARGS), rtol=1e-5)

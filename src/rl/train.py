@@ -5,6 +5,7 @@ arm="trafl" is this repo's TraFL (unchanged defaults); the other arms are the ba
 
 import json
 import time
+from functools import partial
 from pathlib import Path
 from typing import Literal, NamedTuple
 
@@ -35,7 +36,7 @@ from .losses.estimators import Estimator, residual_loss
 from .losses.masks import Scheme
 from .losses.trafl import Normalization, Reference, trafl_residuals
 from .losses.trajectory_balance import trajectory_residuals
-from .samplers import complete_ar, complete_uniform
+from .samplers import complete_ar, complete_proposal, complete_uniform
 
 ZParams = tuple[Layer, Layer]
 
@@ -71,6 +72,10 @@ class TraflConfig(Record):
     rspo_lambda: float = Field(default=0.01, ge=0)      # rspo: feedback coefficient (paper 0.01); target A / lambda
     advantage_std: bool = True                          # rspo: std-normalise the group advantage (optional in paper)
     subtb_lambda: float = Field(default=0.9, gt=0)      # subtb: sub-trajectory weight lambda^length
+    # training rollouts: "uniform" = the random-order generator (default); "decoder" = low-confidence remasking at
+    # rollout_temperature, as TraFL's paper samples (only for losses that do not use the sampled order)
+    rollout: Literal["uniform", "decoder"] = "uniform"
+    rollout_temperature: float = Field(default=1.0, gt=0)
     eval_steps: tuple[int, ...] = ()  # extra exact evaluations (e.g. log-spaced early), besides every save_every
     stop_on_plateau: bool = True
     plateau_window: int = Field(default=2000, ge=1)
@@ -151,6 +156,7 @@ class ReferenceTables(NamedTuple):
     log_cond: np.ndarray     # log q_ref(a | s, i) for every partial string
     log_p: np.ndarray        # log p_ref(y), empty prompt, random-order decoder
     log_p_llada: np.ndarray  # log p_ref(y) under the low-confidence-remasking decoder at DECODER_T
+    log_p_ar: np.ndarray     # log p_ref(y) under the left-to-right decoder
 
 
 def ar_log_probs(forward_fn: object, params: object, full_tokens: np.ndarray, batch: int = 8192) -> np.ndarray:
@@ -180,7 +186,7 @@ def exact_evaluation(step: int, params: Params, contexts: Contexts, target: Targ
                      kl_traj_ref=paths.kl_traj, kl_path_ref=paths.kl_path,
                      expected_log_reward=float(model @ pi.log_reward), entropy=float(-model @ result.log_probs),
                      ar_expected_score=float(np.exp(log_ar) @ scores),
-                     ar_kl_to_ref=float(np.exp(log_ar) @ (log_ar - ref.log_p)),
+                     ar_kl_to_ref=float(np.exp(log_ar) @ (log_ar - ref.log_p_ar)),   # same decoder both sides
                      llada_expected_score=float(dec @ scores), llada_expected_log_reward=float(dec @ pi.log_reward),
                      llada_entropy=float(-dec[finite] @ log_dec[finite]),
                      llada_kl_to_ref=float(dec[finite] @ (log_dec[finite] - ref.log_p_llada[finite])))
@@ -275,12 +281,24 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
         target = tilted_target(pi, log_p_initial, trafl.beta)
         ref_cond = log_conditionals(forward, initial, contexts_all)
         ref_tables = ReferenceTables(ref_cond, log_p_initial,
-                                     proposal_terminal_log_probs(contexts_all, ref_cond, DECODER_T))
+                                     proposal_terminal_log_probs(contexts_all, ref_cond, DECODER_T),
+                                     ar_log_probs(forward, initial, pi.tokens))
     write_settings(output_dir, name, init, width, config, trafl, start, first, arch.spec.model_dump(mode="json"))
     log(f"[{name}] init={init} architecture={arch.spec.model_dump()} start={start} reference={trafl.reference} "
         f"H(target)={float(-target.pi @ target.log_pi):.3f} E_target[y]={float(target.pi @ scores):.4f} -> {output_dir}")
 
-    sampler = complete_ar if trafl.arm == "justgrpo" else complete_uniform
+    if trafl.estimator in ("split", "pairwise") and trafl.mask_scheme != "iid":
+        raise ValueError("split / pairwise need independent masks: comp pairs are dependent (biased U-statistic)")
+    if trafl.ppo_epochs > 1 and trafl.arm in ("espo", "grpo", "rspo"):
+        raise ValueError(f"arm {trafl.arm} has no clipped reuse: use espo_ppo / justgrpo / entppo for ppo_epochs > 1")
+    if trafl.rollout == "decoder" and trafl.arm not in ("trafl", "espo", "espo_ppo", "rspo"):
+        raise ValueError(f"rollout='decoder' changes the trajectory law that arm {trafl.arm} scores; per-string arms only")
+    if trafl.arm == "justgrpo":
+        sampler = complete_ar
+    elif trafl.rollout == "decoder":
+        sampler = partial(complete_proposal, temperature=trafl.rollout_temperature)
+    else:
+        sampler = complete_uniform
 
     @jax.jit
     def rollout(policy: Params, base_key: jax.Array, mask_key: jax.Array, fill_key: jax.Array):
@@ -312,14 +330,16 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
 
         def loss_fn(p: tuple[Params, ZParams]):
             zero = jnp.zeros(rewards.shape)
+            # the "paper" surrogate is log p / u (per token), so beta / u keeps the target exp(beta r); "elbo" is extensive
+            per_token = trafl.normalization == "paper"
             if trafl.arm == "trafl" and trafl.estimator != "square":
-                beta = trafl.beta / hidden
+                beta = trafl.beta / hidden if per_token else trafl.beta + 0.0 * hidden
                 centered = rewards - rewards.mean(axis=1, keepdims=True)
                 shift = beta[:, None] * centered - log_z_forward(p[1], contexts)[:, None]
                 loss, delta = residual_loss(trafl.estimator, forward, p[0], reference, contexts, completions, shift,
                                             loss_key, trafl.mask_samples, trafl.mask_scheme)
             elif trafl.arm == "trafl":
-                beta = trafl.beta / hidden  # 1/l surrogate is log p / u, so beta / u keeps the target exp(beta r)
+                beta = trafl.beta / hidden if per_token else trafl.beta + 0.0 * hidden
                 delta = trafl_residuals(p, forward, log_z_forward, contexts, completions, rewards, loss_key, beta,
                                         reference=reference, samples=trafl.mask_samples,
                                         normalization=trafl.normalization, scheme=trafl.mask_scheme)

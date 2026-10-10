@@ -69,3 +69,38 @@ def test_ar_exact_law_is_normalised_and_aligned_with_string_order() -> None:
     np.testing.assert_allclose(log_ar, joint_log_probs(contexts, log_conditionals(fixed, None, contexts)), atol=1e-4)
     mlp = ar_log_probs(forward, POL, full)
     np.testing.assert_allclose(np.exp(mlp).sum(), 1.0, atol=1e-4)
+
+
+def test_decoder_sampler_matches_the_exact_decoder_law(tables) -> None:
+    """complete_proposal (JAX) draws strings with the frequencies of metrics.decoders.proposal_terminal_log_probs."""
+    from src.metrics.decoders import proposal_terminal_log_probs
+    from src.rl.samplers import complete_proposal
+    contexts, _, pol = tables
+    for temperature in (1.0, 0.6):
+        exact = np.exp(proposal_terminal_log_probs(contexts, pol, temperature))
+        n = 40000
+        ys, orders = complete_proposal(forward, POL, jnp.full((n, LENGTH), MASK, dtype=jnp.int32), jax.random.key(8),
+                                       temperature)
+        assert (np.asarray(orders) >= 0).all() and (np.sort(np.asarray(orders), axis=1) == np.arange(LENGTH)).all()
+        freq = np.bincount(np.asarray(ys) @ (4 ** np.arange(LENGTH - 1, -1, -1)), minlength=4**LENGTH) / n
+        top = np.argsort(-exact)[:15]
+        se = np.sqrt(exact[top] * (1 - exact[top]) / n)
+        assert (np.abs(freq[top] - exact[top]) < 4 * se + 1e-4).all(), (temperature, freq[top], exact[top])
+
+
+def test_decoder_sampler_first_step_matches_step_law(tables) -> None:
+    """The (position, letter) of the first committed token equals proposal_step_law at the empty state, at T = 0.3
+    where scoring proposals with tempered instead of untempered probabilities changes the law (gfn_lab gate G2b)."""
+    from src.metrics.decoders import proposal_step_law
+    from src.rl.samplers import complete_proposal
+    contexts, _, pol = tables
+    empty = len(contexts.tokens) - 1
+    law = proposal_step_law(pol[empty][None], np.ones((1, LENGTH), dtype=bool), 0.3)[0]
+    n = 200000
+    ys, orders = complete_proposal(forward, POL, jnp.full((n, LENGTH), MASK, dtype=jnp.int32), jax.random.key(9), 0.3)
+    first = np.asarray(orders)[:, 0]
+    letter = np.asarray(ys)[np.arange(n), first]
+    freq = np.zeros((LENGTH, 4))
+    np.add.at(freq, (first, letter), 1.0 / n)
+    se = np.sqrt(law * (1 - law) / n)
+    assert (np.abs(freq - law) < 5 * se + 2e-4).all(), np.abs(freq - law).max()

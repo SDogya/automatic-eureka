@@ -69,3 +69,11 @@ def test_u_statistics_are_unbiased_and_square_is_not(estimator: str) -> None:
     se = unbiased.std() / np.sqrt(len(keys))
     assert abs(unbiased.mean() - target) < 4 * se
     assert square.mean() - target > 8 * square.std() / np.sqrt(len(keys))
+
+
+def test_u_statistics_reject_dependent_masks() -> None:
+    import pytest as _pytest
+    shift = jnp.zeros((3, 2))
+    for name in ("split", "pairwise"):
+        with _pytest.raises(ValueError):
+            residual_loss(name, forward, POLICY, REFERENCE, CONTEXTS, COMPLETIONS, shift, jax.random.key(0), 4, "comp")

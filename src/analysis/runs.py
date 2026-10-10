@@ -15,18 +15,19 @@ import numpy as np
 
 # knobs that identify a configuration, per arm (the rest of the TraFL config is recorded but not part of the label)
 ARM_KNOBS = {
-    "trafl": ("beta", "estimator", "mask_scheme", "mask_samples", "var_lambda", "normalization"),
+    "trafl": ("beta", "estimator", "mask_scheme", "mask_samples", "var_lambda", "normalization", "rollout",
+              "rollout_temperature"),
     "tb": ("beta",),
-    "espo": ("kappa", "mask_scheme", "mask_samples"),
-    "espo_ppo": ("kappa", "mask_scheme", "mask_samples", "ppo_epochs", "eps_clip"),
+    "espo": ("kappa", "mask_scheme", "mask_samples", "rollout", "rollout_temperature"),
+    "espo_ppo": ("kappa", "mask_scheme", "mask_samples", "ppo_epochs", "eps_clip", "rollout", "rollout_temperature"),
     "grpo": (),
     "justgrpo": ("ppo_epochs", "eps_clip"),
     "entppo": ("beta", "gae_lambda", "ppo_epochs", "eps_clip"),
-    "rspo": ("rspo_lambda", "advantage_std", "mask_scheme", "mask_samples"),
+    "rspo": ("rspo_lambda", "advantage_std", "mask_scheme", "mask_samples", "rollout", "rollout_temperature"),
     "db": ("beta",),
     "subtb": ("beta", "subtb_lambda"),
 }
-SHARED = ("context_source", "contexts", "group", "learning_rate", "reference")
+SHARED = ("context_source", "contexts", "group", "learning_rate", "reference", "ppo_epochs", "steps")
 
 
 class Run(NamedTuple):
@@ -56,7 +57,8 @@ def read_run(path: Path) -> Run:
     start = None if settings.get("start") is None else Path(settings["start"]).parent.name
     architecture = _architecture(settings)
     group = (arm, knobs, shared, architecture, start, settings["config"].get("reward"))
-    label = f"{arm}[" + ", ".join(f"{k}={v}" for k, v in knobs) + f"] {architecture} from {start or 'random'}"
+    label = (f"{arm}[" + ", ".join(f"{k}={v}" for k, v in knobs) + f"] {architecture} from {start or 'random'}"
+             + " {" + ", ".join(f"{k}={v}" for k, v in shared) + f", reward={settings['config'].get('reward')}" + "}")
     with (path / "evals.csv").open() as f:
         rows = list(csv.DictReader(f))
     evals = {key: np.array([float(r[key]) if r.get(key) not in (None, "") else np.nan for r in rows])

@@ -71,3 +71,14 @@ def test_matched_and_windows_recover_the_power_law(tmp_path: Path) -> None:
     report(tmp_path, out, (0.1, 0.3), (0.0, 10.0))
     assert all((out / f).exists() for f in ("matched_path.md", "matched_score.md", "ratio_windows.md",
                                              "frontier.png", "path.png", "ratio.png", "decoder.png"))
+
+
+def test_shared_settings_keep_configurations_apart(tmp_path: Path) -> None:
+    mlp = {"family": "mlp", "width": 32}
+    write_run(tmp_path, "a", 0, {"arm": "tb", "beta": 1.5, "learning_rate": 1e-3}, rows(2.0), mlp)
+    write_run(tmp_path, "b", 0, {"arm": "tb", "beta": 1.5, "learning_rate": 1e-4}, rows(1.0), mlp)
+    runs = find_runs(tmp_path)
+    table = matched(runs, (0.1,))
+    assert len(table) == 2 and len({r.label for r in runs}) == 2
+    x, y = np.array([0.0, 0.05, 0.2]), np.array([0.0, -1e-9, 0.02])         # float-noise y: clamped, not dropped
+    assert np.isfinite(matched_value(x, y, 0.1))

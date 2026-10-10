@@ -40,6 +40,9 @@ def main() -> None:
                         help="extra exact evaluations, e.g. 1 2 4 8 16 32 64 128 (matched comparisons need early points)")
     parser.add_argument("--rspo-lambda", type=float, default=0.01, help="rspo feedback coefficient")
     parser.add_argument("--subtb-lambda", type=float, default=0.9, help="subtb sub-trajectory weight")
+    parser.add_argument("--rollout", choices=("uniform", "decoder"), default="uniform",
+                        help="training rollouts: random order, or low-confidence remasking (per-string arms only)")
+    parser.add_argument("--rollout-temperature", type=float, default=1.0)
     parser.add_argument("--no-advantage-std", dest="advantage_std", action="store_false",
                         help="rspo: centred instead of std-normalised advantages")
     parser.add_argument("--mask-scheme", choices=("iid", "comp"), default="iid")
@@ -62,7 +65,8 @@ def main() -> None:
                         var_lambda=args.var_lambda, estimator=args.estimator, kappa=args.kappa, ppo_epochs=args.ppo_epochs,
                         eps_clip=args.eps_clip, gae_lambda=args.gae_lambda, rspo_lambda=args.rspo_lambda,
                         advantage_std=args.advantage_std, eval_steps=tuple(args.eval_steps),
-                        subtb_lambda=args.subtb_lambda)
+                        subtb_lambda=args.subtb_lambda, rollout=args.rollout,
+                        rollout_temperature=args.rollout_temperature)
     root = args.output / f"seed_{args.seed}"
     log = LogFn(root / f"train_k{args.exponent}.log")
     scores = tfbind8_scores()
