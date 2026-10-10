@@ -74,6 +74,7 @@ logged loss and exact metric identical). Gates were mutation-checked (each fails
 - **`tb_dec` is exploratory.** The decoder law has true zeros, and the policy's zero set differs from the reference's,
   so log P_θ^dec / P_ref^dec is unbounded (floored at 1e-30). The rising loss in its smoke run is consistent with this.
   It is the concrete reason per-trajectory objectives under argmax-type decoders are ill-conditioned.
+- **Handoff spec for other environments:** [FORMULATIONS_V2.md](FORMULATIONS_V2.md) (RU) — targets, units, every arm, metrics.
 
 ## Pipeline facts from an 8-arm, 300-step pilot (setup facts, not results)
 
