@@ -86,7 +86,10 @@ terminal law settles inside the band, path / terminal by update window:
 - **Under the decoder (endpoints, `results/port_grid2/endpoints_block_a.csv`),** every arm's decoded law at update 10,000 is almost disjoint
   from the reference's (h² ≈ 0.98 at T 0.6) and concentrated on one string. No path comparison survives there on
   this base.
-- Blocks B (penalty at β 4.5) and C (references k = 3, 7, transformer d32): kernel `ae-grid2-b`, pending.
+- Blocks B (penalty at β 4.5) and C (references k = 3, 7, transformer d32) were **lost**: kernel `ae-grid2-b` hit
+  Kaggle's ≈ 12 h session limit, slowed by its transformer runs (≈ 4–5 h each on Kaggle CPU), and Kaggle kept no
+  outputs. The runner now copies each run as soon as it ends. The penalty question moved to grid 3 on the broader
+  base. The reference-size question needs a cheaper transformer schedule or a GPU kernel.
 
 **The 4-paired vs 32-independent puzzle** (`scripts/mask_penalty.py`, `mask_penalty.json`). The paper's 4 paired
 masks drift more than this repo's 32 independent masks: late ratio 0.54 vs 0.25 at β 0.5. The hypothesis was that
