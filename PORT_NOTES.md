@@ -61,6 +61,20 @@ logged loss and exact metric identical). Gates were mutation-checked (each fails
 7. **Size ablation:** 4⁸ = 65,536 strings and 5⁸ = 390,625 contexts. The MLPs (k = 1..7) have ≤ 25k parameters;
    the transformer sizes go beyond the context count, to see where a model can store the table.
 
+## Units and targets across arms (checked 2026-10-10)
+
+- **Group centering shrinks the tilt.** `trafl`, `tb` and `tb_dec` centre rewards within the group of G = 5. Their
+  stationary tilt is β (1 − 1/G) = 0.8 β (FRAME.md, exact-score idealisation). `db`, `subtb` and `entppo` use raw
+  β r: V(y) = β r(y) must depend on y alone, so they cannot centre.
+  - **The same nominal β is therefore not the same target across those two groups.** Comparisons at matched
+    distance (all READINGs) are unaffected.
+  - To compare by target, use β_db = 0.8 β_tb.
+- **TraFL's estimators** (`--estimator` other than square) score per token, so β / u always applies. A fixed bug made
+  it follow `--normalization`.
+- **`tb_dec` is exploratory.** The decoder law has true zeros, and the policy's zero set differs from the reference's,
+  so log P_θ^dec / P_ref^dec is unbounded (floored at 1e-30). The rising loss in its smoke run is consistent with this.
+  It is the concrete reason per-trajectory objectives under argmax-type decoders are ill-conditioned.
+
 ## Pipeline facts from an 8-arm, 300-step pilot (setup facts, not results)
 
 - **Grid design:** at their learning rate (1e-3, 256 prompts × 5) every arm passes terminal KL ≈ 3 by update 50.

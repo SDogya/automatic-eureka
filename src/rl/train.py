@@ -62,7 +62,10 @@ class TraflConfig(Record):
     # arm and its knobs: beta (trafl, tb), kappa (espo, espo_ppo), none (grpo, justgrpo); var_lambda adds TraFL's
     # explicit across-order variance penalty; ppo_epochs = policy updates per rollout batch (ESPO's mu)
     arm: Literal["trafl", "tb", "espo", "espo_ppo", "grpo", "justgrpo", "entppo", "rspo", "db", "subtb",
-                 "tb_dec"] = "trafl"   # tb_dec: RTB scored and sampled under the low-confidence-remasking decoder
+                 "tb_dec"] = "trafl"   # tb_dec: RTB scored and sampled under the low-confidence-remasking decoder;
+    # EXPLORATORY: the decoder law has true zeros (a letter whose confidence is below every proposal elsewhere is never
+    # committed) and theta / the reference have different zero sets, so the log-ratio is unbounded (floored at 1e-30
+    # per factor in proposal_step_log_law)
     mask_scheme: Scheme = "iid"
     estimator: Estimator = "square"  # trafl only: square (this repo), split / pairwise (U-statistics), exact_masks, exact_lik
     var_lambda: float = Field(default=0.0, ge=0)
@@ -353,7 +356,7 @@ def train_trafl(config: Config, trafl: TraflConfig, name: str, width: int,
             # the "paper" surrogate is log p / u (per token), so beta / u keeps the target exp(beta r); "elbo" is extensive
             per_token = trafl.normalization == "paper"
             if trafl.arm == "trafl" and trafl.estimator != "square":
-                beta = trafl.beta / hidden if per_token else trafl.beta + 0.0 * hidden
+                beta = trafl.beta / hidden  # the estimators' scores are per-token whatever `normalization` says
                 centered = rewards - rewards.mean(axis=1, keepdims=True)
                 shift = beta[:, None] * centered - log_z_forward(p[1], contexts)[:, None]
                 loss, delta = residual_loss(trafl.estimator, forward, p[0], reference, contexts, completions, shift,
