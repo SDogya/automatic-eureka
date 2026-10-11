@@ -67,6 +67,7 @@ uv run --no-sync python scripts/mask_penalty.py                    # implicit ma
 uv run --no-sync python -m src.analysis.tilt --root models/port_grid3 --out results/port_grid3   # needs final checkpoints:
 python3 scripts/kaggle_pull_pages.py arsen4ikvar/ae-grid3-0 .scratch/kaggle/out/grid3-0 'step_10000\.npz$'   # (then rsync out/ -> models/)
 PYTHONPATH=. uv run --no-sync python scripts/decoder_true_law.py   # decoder on the true law / reference / target
+uv run --no-sync python -m src.analysis.attained --root models/port_grid3 --out results/port_grid3   # b*(t) from evals.csv; matched-tilt tables
 ```
 
 Run checkpoints live in `models/port_*/` (git-ignored); tables and figures go to `results/`.

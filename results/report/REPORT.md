@@ -309,7 +309,10 @@ At b\* = 0.2, every uniform-rollout arm gets there within 23–471 updates:
    the "which frontier" part.
 4. **JustGRPO is off its own sampler here.** It is trained and natively decoded left to right. Its random-order and
    confidence-decoder numbers are views of a model never trained to be read that way, so it is handicapped in this
-   table. Its own decoder's metrics are the `ar_*` columns.
+   table. Its own decoder's metrics are the `ar_*` columns. Read on its own sampler, it does slightly
+   better: score 0.615 at left-to-right KL 1, against 0.606 in the random-order view. That equals GRPO (0.615–0.617)
+   and stays below TraFL and TB (0.63), so its standing on reward efficiency does not change. There is no exact
+   diversity metric for the left-to-right law.
 5. **Different targets at the same β.** Centred arms target 0.8 β, raw arms β (25 % stronger). This is handled by b\*
    and by matched distance, but any nominal-β comparison is wrong.
 6. **Convergence differs.** TraFL is stationary at 10k. TB, DB and SubTB are still creeping, so their shortfall in
