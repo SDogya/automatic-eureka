@@ -134,7 +134,10 @@ masks, so the drift difference is not the penalty's size. Untested candidates:
 - **Reward efficiency is the same across arms** (0.61–0.65 at matched KL).
 - **Diversity at matched KL:** TraFL and the balance arms ≥ ESPO > GRPO / JustGRPO / RSPO under random order; ESPO
   leads under the decoder.
-- **Decoder rollouts, as TraFL's paper samples,** raise per-string drift by 40–500 % and cut diversity.
+- **Decoder rollouts, as TraFL's paper samples, raise path drift per unit of terminal movement:** TraFL +40–46 %,
+  ESPO 6×.
+  - TraFL with them moves only half as far in 10,000 updates (terminal KL 0.55 vs 1.1).
+  - ESPO and RSPO lose diversity. For TraFL the diversity change is mixed (READING R4).
 
 ## 5. Correctness
 

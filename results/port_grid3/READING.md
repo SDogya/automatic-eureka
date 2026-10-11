@@ -47,14 +47,19 @@ violated, but the separation holds.
 
 | arm | late ratio, decoder vs uniform | other |
 |---|---|---|
-| TraFL comp 4 | 0.278 vs 0.190 (+46 %) | — |
-| TraFL exact likelihood | 0.246 vs 0.175 (+40 %) | — |
+| TraFL comp 4 | 0.278 vs 0.190 (+46 %) | moves half as far in 10k updates (terminal KL 0.55 vs 1.12, still creeping), so no matched-level-1 numbers |
+| TraFL exact likelihood | 0.246 vs 0.175 (+40 %) | same: terminal KL 0.56 vs 1.12 |
 | ESPO | — | path KL at matched distance 0.62 vs 0.10 (6×); score 0.571 vs 0.629; diversity 4.6 / 2.9 vs 7.5 / 4.1 |
 | RSPO | — | score 0.620 vs 0.605; diversity 6.2 / 1.6 vs 6.9 / 3.1 |
 
 Sampling training completions with the low-confidence decoder, as TraFL's paper does, makes the per-string objectives
-off-policy for the model's own random-order law. Here it increases path drift and reduces diversity: training on the
-decoder's own outputs reinforces its mode-seeking.
+off-policy for the model's own random-order law. Here it increases path drift for every per-string arm. Diversity loss at matched distance is shown only for ESPO and
+RSPO.
+- TraFL with decoder rollouts never reaches the matched level. Its endpoint decoder diversity is 2.1–2.9 against 2.7–4.0.
+- At the decoder distance the two TraFL settings share, comp 4 is about equal (2.9 vs ≈ 3.0, interpolated), while exact
+  likelihood is lower (2.1 vs ≈ 2.8).
+- The likely cause is the decoder at the reference: entropy 1.58 nats, 0.36 distinct top-1 % strings in 16 draws, and a
+  law with exact zeros. It feeds the loss a narrow set of strings.
 
 **Scope.** Broader base (Potts β 0.75, MLP k = 5 reference), one reward, 2 seeds, β ∈ {0.25, 0.5}. Comparisons are at
 matched distance. Same-β comparisons across centring (TraFL, TB) and raw-reward (DB, SubTB, Ent-PPO) arms are not
