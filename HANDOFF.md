@@ -76,7 +76,10 @@ Run checkpoints live in `models/port_*/` (git-ignored); tables and figures go to
   after a pull and re-pull missing runs with a targeted regex.
 - **Slots.** The account has 5 concurrent CPU sessions, shared with the gfn_lab session. Message it before taking
   more than 2.
-- **Pushing.** Push by hand when a slot frees; shell retry loops did not register success.
+- **Pushing.** A push beyond 5 running sessions is rejected ("Maximum batch CPU session count of 5 reached"), not
+  queued: Kaggle's QUEUED state is only for accepted sessions waiting for a machine. Unattended shell retry loops
+  failed on 2026-10-09 for an undiagnosed reason, plausibly the Mac sleeping or going offline. Push by hand, or run
+  the loop under `caffeinate -i` and confirm with `kaggle kernels status`.
 - **Credentials.** They stay in `~/.kaggle`; never print them. The W&B key is never put in YAML or on a command
   line.
 
@@ -85,7 +88,17 @@ Run checkpoints live in `models/port_*/` (git-ignored); tables and figures go to
 1. **The realistic environment (plan step 6).** The broader Potts base is the working proposal. A real-data
    reference (held-out-by-string pretraining) is not built.
 2. **The transformer reference arm.** Re-run grid 2C on the broader base, on a GPU kernel or with sparser evals?
-3. **`tb_dec`.** Add ε-smoothing to the decoder law (it has true zeros, so the log ratio is unbounded), or drop it?
+3. **`tb_dec`: recommend dropping it.**
+   - **It is not a numerical problem.** The decoder law has exact zeros, and θ and the reference have different zero
+     sets, so the log ratio is unbounded.
+   - **Its target may be unreachable.** The decoder's step law is a fixed function of the denoiser's marginals, not
+     a free policy.
+   - **ε-smoothing would not fix it.** Mixing ε into the *scored* law changes the target (it then depends on ε) and
+     cures only the zeros.
+   - **Where ε does belong.** If we want balance arms trained on decoder samples, use off-policy `tb`:
+     - it still scores the random-order law, so its fixed point is unchanged;
+     - rollouts come from the decoder mixed with ε uniform-order steps, for coverage;
+     - the current guard rejects `--rollout decoder` for `tb` too strictly.
 
 ## Next steps, by value
 

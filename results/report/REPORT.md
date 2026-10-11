@@ -47,6 +47,23 @@ for the per-string arms. Exact metrics at every evaluation:
 | order imbalance KL(c_ref(τ\|y) ‖ uniform) | 0.04 nats | 0.08 nats |
 | reference under the low-confidence decoder (T 0.6) | entropy 0.72, 99 % in a handful | entropy 1.58, 99 % in 16, half on one string |
 
+**Choosing the pretraining β.** The values below are exact over all strings with the same couplings. Independent
+draws stand in for the MH sample: they give 165 / 2,405 distinct strings where the MH sample has 160 / 2,398.
+
+| β | entropy (nats) | strings for 99 % | distinct in 10,000 draws | law mass they cover |
+|---|---|---|---|---|
+| 0.5 | 8.76 | 31,913 | 4,803 | 0.68 |
+| 0.75 | 6.97 | 11,205 | 2,405 | 0.86 |
+| 1 | 5.51 | 3,227 | 1,213 | 0.94 |
+| 1.5 | 3.71 | 392 | 383 | 0.98 |
+| 2 | 2.83 | 93 | 165 | 0.99 |
+
+- β 2 is the repo's original setting.
+- β 0.75 was picked by hand, not by a prior scan, inside the window where the sample covers most of the law's mass
+  but not all of it:
+  - covering most of it lets the reference learn the law;
+  - not covering all of it means learning and storing the sample give different references.
+
 **Verdict.**
 - The current base (β 2) is weak for diversity and memorisation questions: its reference is effectively a 100-string
   law, and TraFL's target is a few strings.
