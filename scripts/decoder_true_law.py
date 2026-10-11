@@ -21,7 +21,7 @@ from src.config import LENGTH, MASK, Config
 from src.data import build_target, potts_log_reward, tfbind8_scores
 from src.evaluation import build_contexts, joint_log_probs
 from src.metrics.decoders import proposal_terminal_log_probs
-from src.metrics.paths import log_conditionals
+from src.metrics.paths import log_conditionals, string_law_log_conditionals
 from src.rl.train import DECODER_T, diversity
 
 REFERENCE = Path("models/pretrain_b0.75/mlp_5/best.npz")
@@ -30,21 +30,6 @@ pi = build_target(Config.model_validate_json(Path("configs/potts_tfbind8.json").
 scores = tfbind8_scores()
 top = np.argsort(-pi.log_reward)[: len(pi.log_reward) // 100]
 assert np.array_equal(contexts.tokens[contexts.full_ids], pi.tokens)                        # one string order
-
-
-def consistent_log_cond(log_p: np.ndarray) -> np.ndarray:
-    """log q(v | s, i) of the string law p for every partial string s, from its exact marginals."""
-    marg = np.exp(log_p - log_p.max()).reshape((MASK,) * LENGTH)
-    for axis in range(LENGTH):                                     # index MASK on an axis = summed out
-        marg = np.concatenate([marg, marg.sum(axis=axis, keepdims=True)], axis=axis)
-    flat = marg.ravel()
-    assert np.allclose(flat[contexts.full_ids], np.exp(log_p - log_p.max()))
-    out = np.full((len(flat), LENGTH, MASK), np.log(1 / MASK))
-    for i in range(LENGTH):
-        hidden = np.flatnonzero(contexts.tokens[:, i] == MASK)
-        for v in range(MASK):
-            out[hidden, i, v] = np.log(flat[hidden - (MASK - v) * contexts.powers[i]]) - np.log(flat[hidden])
-    return out
 
 
 def describe(log_p: np.ndarray) -> dict:
@@ -70,7 +55,7 @@ laws["TraFL target (beta 0.5)"] = (tilt - np.logaddexp.reduce(tilt), None)
 
 out = {}
 for name, (log_p, cond) in laws.items():
-    cond = consistent_log_cond(log_p) if cond is None else cond
+    cond = string_law_log_conditionals(contexts, log_p) if cond is None else cond
     row = {"random order": describe(log_p), "decoder T 0.6": describe(proposal_terminal_log_probs(contexts, cond, DECODER_T))}
     out[name] = row
     print(name, json.dumps({k: {m: round(v, 3) for m, v in r.items()} for k, r in row.items()}), flush=True)

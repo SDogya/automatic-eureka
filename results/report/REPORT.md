@@ -172,6 +172,156 @@ masks, so the drift difference is not the penalty's size. Untested candidates:
   - TraFL with them moves only half as far in 10,000 updates (terminal KL 0.55 vs 1.1).
   - ESPO and RSPO lose diversity. For TraFL the diversity change is mixed (READING R4).
 
+## 4b. Method by method: where each one lands, its trained tilt, and the confounds
+
+`python -m src.analysis.tilt` reads every run's final checkpoint exactly, from the empty prompt. Full table:
+`results/port_grid3/tilt.md`. Figures: `tilt.png`, `path_by_string.png`, `orders.png`. The quantities:
+- **Fitted tilt b\*:** the tilt of the reference, π_b ∝ p_ref e^{b r}, that has the model's expected reward. It equals b
+  exactly when p_θ = π_b.
+- **Stated b:** the tilt the loss targets at its optimum: 0.8 β for the group-centred arms (TraFL, TB; G = 5), and β for
+  the raw-reward arms (DB, SubTB, Ent-PPO).
+- **Shape KL:** KL(p_θ ‖ π_b\*), how far the law is from *any* tilt of the reference.
+
+The matched-distance columns are at terminal KL 1, from `summary.md`. β = 0.5 throughout. At β = 0.25, TraFL's b\* /
+stated is the same (0.76–0.81), and the balance arms' is 0.06–0.07 lower.
+
+| method | anchor | terminal KL from ref at 10k | b\* (stated) | shape KL | score @ KL 1 | top-1 % distinct, random / decoder @ KL 1 | path KL @ terminal KL 1 | late path / terminal |
+|---|---|---|---|---|---|---|---|---|
+| TraFL, 4 estimators | p_ref e^{0.8βr}, path free | 0.97–1.12, stationary | 0.30–0.33 (0.40) | 0.12–0.18 | 0.637–0.640 | 7.67–7.76 / 3.1–3.7 | 0.15–0.19 | 0.175–0.19 |
+| TraFL + order-variance penalty λ 1 | same, path pulled to c_ref | 0.88 | 0.29 (0.40) | 0.15 | 0.645 | 7.87 / 3.75 | — | **0.115** |
+| TraFL, decoder rollouts | same | 0.55, stationary at 30k | **0.21–0.22** (0.40) | 0.12–0.16 | never reaches KL 1 | — | — | 0.25–0.28 |
+| TB (RTB) | P_ref e^{0.8βr} on paths | 1.28, creeping | 0.37 (0.40) | 0.09 | 0.639 | 7.65 / 3.2 | 0.10 | 0.10 |
+| DB | P_ref e^{βr}, local | 1.65, creeping | 0.40 (0.50) | 0.13 | 0.630 | 7.70 / 3.1 | 0.09 | 0.11 |
+| SubTB | same | 1.87, creeping | 0.44 (0.50) | 0.12 | 0.630 | 7.62 / 3.2 | 0.08 | — |
+| Ent-PPO | same, soft RL | 2.16 | 0.49 (0.50) | 0.07 | 0.627 | 7.56 / 3.3 | 0.08 | — |
+| ESPO, κ 0.05 | k2 to p_ref | 2.64 | 0.42 (none) | **0.46** | 0.629 | 7.48 / **4.05** | 0.10 | — |
+| ESPO-PPO, μ 8 | same | 1.87 | 0.35 (none) | 0.38 | 0.627 | 7.39 / 3.65 | 0.12 | — |
+| ESPO, decoder rollouts | same | 2.40 | 0.17 | **1.92** | 0.571 | 4.6 / 2.9 | **0.62** | 0.82 |
+| RSPO, λ 0.01 | λ, weak here | 18.95, still moving | 2.18 | 0.13 | 0.605 | 6.94 / 3.1 | 0.08 | — |
+| RSPO, decoder rollouts | same | 7.44, still moving | 0.46 | 1.82 | 0.620 | 6.18 / **1.63** | 0.10 | — |
+| GRPO | none | 22.25, still moving | 2.95 | 0.05 | 0.617 | 7.18 / 3.2 | 0.08 | — |
+| JustGRPO (trained left to right) | none | 12.12, still moving | 0.77 | 1.6 | 0.606 | 6.93 / 3.0 | 0.08 | — |
+
+**Reading.**
+- **Reward efficiency at matched distance is 0.61–0.65 for every arm with uniform rollouts.** ESPO with decoder
+  rollouts is lower, at 0.57.
+- **The anchored, tilt-targeting arms keep the most top-string diversity under random order:** TraFL and the four
+  balance arms.
+- **ESPO keeps the most under the decoder.**
+- **The reward maximisers (GRPO, JustGRPO, RSPO at λ 0.01) lose diversity at the same distance.**
+- **TraFL's law is further from a pure tilt than TB's or Ent-PPO's** (shape KL 0.12–0.18 vs 0.07–0.09), and its paths
+  drift about 2× more per unit of terminal movement.
+- **ESPO's law is not tilt-shaped at all** (shape KL 0.46): its k2 anchor does not target a tilt.
+- **Decoder rollouts make every per-string arm less tilt-like:** ESPO's shape KL goes 0.46 → 1.92, RSPO's 0.13 → 1.82.
+
+**The order law** (`orders.png`, top target string):
+- Read by random order, the reference, TraFL and TB are all near-uniform over positions. The drift is real (path KL
+  0.1–0.2) but spread thin.
+- Read by the decoder, post-training rewrites the reveal order completely: the reference's spread order becomes a
+  near-deterministic, different one.
+
+**Where the drift sits** (`path_by_string.png`):
+- For every arm with a stated tilt, per-string path KL falls with reward, by 2–4× from the lowest to the highest reward
+  bin.
+- TraFL is above TB and DB at every reward level, except with the order-variance penalty.
+- In raw terms SubTB and Ent-PPO reach TraFL's level, but they sit about twice as far from the reference (terminal KL
+  1.9–2.2 vs 1.1). Per unit of terminal movement, the late ratio in the table is the fair comparison.
+
+### Is TraFL's effective exponent "good enough"?
+
+- **The centering factor is real but not the whole story.**
+  - Centering within the group gives b = β (1 − 1/G) = 0.8 β at G = 5 (PORT_NOTES).
+  - The per-token normalisation cancels exactly: the surrogate is log p / u, and the loss uses β / u (`train.py`).
+- **TraFL lands at b\* = 0.76–0.82 × 0.8 β, i.e. 0.61–0.65 β.**
+  - **It is stationary:** comp 4 gives 0.318 at 10k and 0.325 at 30k (`results/port_grid3_long/tilt.md`).
+  - **It does not depend on the estimator:** exact likelihood 0.82, pairwise 0.79, comp 4 0.80, 32 IID 0.76 (of 0.8β).
+    So neither the masked surrogate's ELBO gap nor its mask variance causes it.
+  - **The explicit penalty lowers it further** (0.69–0.72), as expected of a penalty pulling toward the reference.
+- **TB, with the same centering, reaches 0.85–0.91 and is still rising at 10k. Ent-PPO, with raw β, reaches
+  0.91–0.98.** TraFL's shortfall is therefore specific to it, or at least larger in it.
+- **Candidate cause, untested: on-policy weighting under a shared-parameter model.**
+  - The squared residual is fitted where the policy samples.
+  - The shortfall doubles when the samples come from the more concentrated decoder: b\* / stated falls from 0.80 to
+    0.53–0.55.
+- **Practical reading:**
+  - TraFL's β is a knob to calibrate, not a temperature to read off. Here b\* ≈ 0.64 β.
+  - Compare methods at matched distance or matched b\*, never at nominal β. The same nominal β is a 25 % stronger
+    target for the raw-reward arms, and a 20–36 % weaker achieved tilt for TraFL.
+
+### At matched attained tilt (`attained.png`, `matched_tilt.md`; `python -m src.analysis.attained`)
+
+**How b\* is tracked.**
+- b\*(t) depends on the model only through E_p[r], which every evaluation logs. So the attained tilt is available at
+  every evaluation step, with no checkpoints needed.
+- KL(p ‖ π_b\*) then follows from the logged KL(p ‖ p_ref).
+- Both reproduce the checkpoint analysis at the final step (asserted).
+
+**At a matched tilt, KL(p ‖ π_b\*) is wasted KL.** Among all laws with the expected reward of π_b, π_b is the one
+closest to the reference. Hence KL(p ‖ p_ref) = KL(π_b\* ‖ p_ref) + KL(p ‖ π_b\*): the second term is the distance
+spent beyond what that reward needs.
+
+At b\* = 0.2, every uniform-rollout arm gets there within 23–471 updates:
+
+| method | update reached | wasted KL | path KL | top-1 % distinct, random / decoder |
+|---|---|---|---|---|
+| TraFL, 4 estimators | 399–429 | 0.15 | 0.049–0.053 | 6.2 / 3.75–3.85 |
+| TraFL + order-variance penalty | 471 | 0.15 | 0.043 | 6.25 / 4.03 |
+| TraFL, decoder rollouts | 2,100–3,600 | 0.12–0.14 | 0.087–0.127 | 6.0–6.1 / 2.2–2.7 |
+| TB | 182 | 0.16 | 0.038 | 6.28 / 3.12 |
+| DB, SubTB | 155–188 | 0.21–0.22 | 0.043–0.045 | 6.2 / 2.5–2.8 |
+| Ent-PPO | 27 | 0.26 | 0.045 | 6.35 / 3.07 |
+| ESPO, ESPO-PPO | 23–180 | 0.23 | 0.056 | 6.25 / 3.1–3.2 |
+| GRPO, JustGRPO | 92–115 | 0.33 | 0.058–0.060 | 6.2–6.3 / 2.9–3.0 |
+| RSPO | 112 | 0.35 | 0.060 | 6.26 / 2.99 |
+| RSPO, decoder rollouts | 181 | 0.51 | 0.078 | 6.06 / 1.70 |
+
+**Reading.**
+- **At the same attained tilt, random-order diversity is the same for every arm** (6.0–6.35). The diversity gap at
+  matched KL is a KL-efficiency gap: the reward maximisers pay more distance for the same reward. Their wasted KL is
+  0.33–0.35, against 0.15–0.16 for TraFL and TB.
+- **TraFL's string law is as KL-efficient as TB's.**
+- **At b\* = 0.2, TraFL's path KL sits between the balance arms and the maximisers:** 0.05, against 0.04 and 0.06. Its
+  larger drift at matched KL 1 builds up later, while it sits near its stationary tilt.
+- **Under the decoder at matched tilt, TraFL keeps the most top-string diversity:** 3.75–4.03 vs 2.5–3.2. Decoder
+  metrics are seed-fragile.
+- **Low levels read the first jumps of training.** At b\* = 0.1 (reached in 9–169 updates) all arms are nearly
+  identical.
+- **High levels carry the time confound in full.** TraFL reaches b\* = 0.3 only asymptotically, after 1,900–6,200
+  updates (its stationary b\* is 0.30–0.33), against 55–710 for the others. The penalty and decoder-rollout variants
+  never reach it.
+- **So b\* = 0.2 is the fairest single level here.** A matched-tilt reading is still a first-crossing reading.
+
+### Confounds, most damaging first
+
+1. **Time at distance.** "Path KL at matched terminal KL" compares arms that *pass through* KL 1 early (GRPO, JustGRPO,
+   RSPO, ESPO, within a few hundred updates) with TraFL, which *settles* there for thousands of updates. Path drift
+   accumulates while the terminal law is stationary. So TraFL vs the reward maximisers on path KL is confounded. The
+   fair path comparison is TraFL vs TB / DB / SubTB / Ent-PPO by late ratio, since they all settle at 1.1–2.2.
+   Matched attained tilt has the same problem at high levels. At a mid level (b\* = 0.2) TraFL's path KL is between
+   the balance arms' and the maximisers'.
+2. **Unanchored arms are not at a fixed point.**
+   - GRPO, JustGRPO and RSPO at λ 0.01 are still moving at 10k (terminal KL 12–22). Their final-checkpoint numbers
+     (b\* 2–3, score 0.92–0.95) measure training length, not a target. Only their matched-distance numbers mean
+     anything.
+   - RSPO's λ is the paper's and was not tuned. In this toy it is effectively unanchored.
+3. **One setting per non-β arm, no sweeps.** ESPO (κ 0.05), RSPO (λ 0.01), ESPO-PPO (μ 8) are each one point on their
+   own frontier. "Method X is less diverse" means "at this setting". Matched distance removes the "how far" part, not
+   the "which frontier" part.
+4. **JustGRPO is off its own sampler here.** It is trained and natively decoded left to right. Its random-order and
+   confidence-decoder numbers are views of a model never trained to be read that way, so it is handicapped in this
+   table. Its own decoder's metrics are the `ar_*` columns.
+5. **Different targets at the same β.** Centred arms target 0.8 β, raw arms β (25 % stronger). This is handled by b\*
+   and by matched distance, but any nominal-β comparison is wrong.
+6. **Convergence differs.** TraFL is stationary at 10k. TB, DB and SubTB are still creeping, so their shortfall in
+   b\* is partly unconverged.
+7. **Evaluation prompt ≠ training prompts.** All exact metrics are from the empty prompt. Training uses random partial
+   strings, often off the reference's support.
+8. **Gradient steps per update differ** (ESPO-PPO μ 8, Ent-PPO μ 4) on the per-update x-axis.
+9. **The toy's regime.** At the reference, the decoder is worse on reward than random order, the reverse of real
+   dLLMs (§1), and there is one reward, one reference and 2 seeds. Seed ranges are tight (±3 %) for random-order
+   metrics, but decoder-level metrics are seed-fragile: decoder TV to the decoded target is 0.30 vs 0.73 for the two
+   TraFL comp 4 seeds at 30k.
+
 ## 5. Correctness
 
 - **Tests:** 97, each a mathematical identity or a comparison against an independent exact computation. Mutation

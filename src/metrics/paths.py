@@ -67,3 +67,20 @@ def path_kl(contexts: Contexts, log_cond_ref: FloatArray, log_cond_theta: FloatA
     p_ref, log_t = mass_ref[contexts.full_ids], mass_theta[contexts.full_ids]
     kl_term = float(np.exp(p_ref) @ (p_ref - log_t))
     return PathKL(kl_traj, kl_term, kl_traj - kl_term)
+
+
+def string_law_log_conditionals(contexts: Contexts, log_p: FloatArray) -> FloatArray:
+    """log q(v | s, i) of a string law p (full_ids order) for every partial string s, from its exact marginals: the
+    order-consistent denoiser whose every reveal order samples p. Revealed positions get log 1/4 (unused)."""
+    length = contexts.tokens.shape[1]
+    marg = np.exp(log_p - log_p.max()).reshape((MASK,) * length)
+    for axis in range(length):                                     # index MASK on an axis = summed out
+        marg = np.concatenate([marg, marg.sum(axis=axis, keepdims=True)], axis=axis)
+    flat = marg.ravel()
+    assert np.allclose(flat[contexts.full_ids], np.exp(log_p - log_p.max()))
+    out = np.full((len(flat), length, MASK), np.log(1 / MASK))
+    for i in range(length):
+        hidden = np.flatnonzero(contexts.tokens[:, i] == MASK)
+        for v in range(MASK):
+            out[hidden, i, v] = np.log(flat[hidden - (MASK - v) * contexts.powers[i]]) - np.log(flat[hidden])
+    return out

@@ -7,9 +7,9 @@
   exploratory. There are also the MLP and transformer backbones, with the transformer size ablation.
 - 97 tests collected, all green at the last full run; the suite is the gate on the maths.
 - Grids 1, 2A and 3 are finished and read. 2B/C were lost to Kaggle's 12-hour limit.
-- **Running (2026-10-11):** kernel `ae-grid3-long`, TraFL comp 4 β 0.5, decoder vs uniform rollouts, 30k updates,
-  2 seeds each (`results/port_grid3_long/SPEC.md`, pre-stated). Pull with `python3 scripts/kaggle_job.py pull
-  grid3-long`. Kernels `ae-grid3-1`, `-1b` and `-1c` are COMPLETE and hold no slot.
+- Nothing is running. `ae-grid3-long` (30k-update decoder vs uniform rollouts) finished and is read in
+  `results/port_grid3_long/READING.md`.
+- Final checkpoints of all grid-3 runs and the long runs were pulled into `models/` (git-ignored).
 - The report is `results/report/REPORT.md` (no longer a draft).
 
 ## Read in this order
@@ -64,6 +64,9 @@ uv run --no-sync python -m src.analysis.report  --root models/port_grid3 --out r
 uv run --no-sync python -m src.analysis.summary --root models/port_grid3 --out results/port_grid3 --level 1.0
 uv run --no-sync python -m src.analysis.endpoints ...              # post-hoc decoder metrics at chosen checkpoints
 uv run --no-sync python scripts/mask_penalty.py                    # implicit mask penalty per estimator
+uv run --no-sync python -m src.analysis.tilt --root models/port_grid3 --out results/port_grid3   # needs final checkpoints:
+python3 scripts/kaggle_pull_pages.py arsen4ikvar/ae-grid3-0 .scratch/kaggle/out/grid3-0 'step_10000\.npz$'   # (then rsync out/ -> models/)
+PYTHONPATH=. uv run --no-sync python scripts/decoder_true_law.py   # decoder on the true law / reference / target
 ```
 
 Run checkpoints live in `models/port_*/` (git-ignored); tables and figures go to `results/`.
@@ -78,6 +81,8 @@ Run checkpoints live in `models/port_*/` (git-ignored); tables and figures go to
   after a pull and re-pull missing runs with a targeted regex.
 - **Slots.** The account has 5 concurrent CPU sessions, shared with the gfn_lab session. Message it before taking
   more than 2.
+- **Watching.** A background watcher (`sleep` loop under `caffeinate -i`) stalled for about 19 h while the Mac slept
+  (2026-10-11). Check status by hand after any sleep; do not trust a local loop.
 - **Pushing.** A push beyond 5 running sessions is rejected ("Maximum batch CPU session count of 5 reached"), not
   queued: Kaggle's QUEUED state is only for accepted sessions waiting for a machine. Unattended shell retry loops
   failed on 2026-10-09 for an undiagnosed reason, plausibly the Mac sleeping or going offline. Push by hand, or run
@@ -89,6 +94,12 @@ Run checkpoints live in `models/port_*/` (git-ignored); tables and figures go to
   - the decoder concentrates even the true Potts law (99 % on 19 strings);
   - the reference (KL 0.10 from the law) decides where it lands: low-reward strings (score 0.30 vs 0.38);
   - order inconsistency is not the cause.
+
+- **Method by method, with confounds** (REPORT §4b, from `python -m src.analysis.tilt`):
+  - fitted tilt vs stated tilt, KL / TV to the target, decoder laws, per-string path drift and order heatmaps;
+  - TraFL reaches b\* ≈ 0.64 β, against the 0.8 β centering predicts. This is stationary, estimator-independent and
+    larger than TB's shortfall.
+  - With decoder rollouts TraFL settles at half the distance (b\* ≈ 0.43 β).
 
 ## Open decisions for the principal
 
