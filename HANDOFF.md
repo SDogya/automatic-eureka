@@ -7,7 +7,9 @@
   exploratory. There are also the MLP and transformer backbones, with the transformer size ablation.
 - 97 tests collected, all green at the last full run; the suite is the gate on the maths.
 - Grids 1, 2A and 3 are finished and read. 2B/C were lost to Kaggle's 12-hour limit.
-- Nothing is running: kernels `ae-grid3-1`, `-1b` and `-1c` are COMPLETE, and completed kernels hold no slot.
+- **Running (2026-10-11):** kernel `ae-grid3-long`, TraFL comp 4 β 0.5, decoder vs uniform rollouts, 30k updates,
+  2 seeds each (`results/port_grid3_long/SPEC.md`, pre-stated). Pull with `python3 scripts/kaggle_job.py pull
+  grid3-long`. Kernels `ae-grid3-1`, `-1b` and `-1c` are COMPLETE and hold no slot.
 - The report is `results/report/REPORT.md` (no longer a draft).
 
 ## Read in this order
@@ -82,6 +84,11 @@ Run checkpoints live in `models/port_*/` (git-ignored); tables and figures go to
   the loop under `caffeinate -i` and confirm with `kaggle kernels status`.
 - **Credentials.** They stay in `~/.kaggle`; never print them. The W&B key is never put in YAML or on a command
   line.
+
+- **Decoder on the true law** (exact; REPORT §2, `scripts/decoder_true_law.py`):
+  - the decoder concentrates even the true Potts law (99 % on 19 strings);
+  - the reference (KL 0.10 from the law) decides where it lands: low-reward strings (score 0.30 vs 0.38);
+  - order inconsistency is not the cause.
 
 ## Open decisions for the principal
 
