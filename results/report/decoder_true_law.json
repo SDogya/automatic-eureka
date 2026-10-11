@@ -1,0 +1,90 @@
+{
+ "true law (Potts beta 0.75)": {
+  "random order": {
+   "entropy": 6.9665607321324,
+   "strings_99": 11205,
+   "top_string_mass": 0.022601668824449396,
+   "support": 65536,
+   "expected_score": 0.4096411453832436,
+   "distinct16": 15.514611671270298,
+   "top1pct_mass": 0.14702397714090001,
+   "top1pct_distinct16": 2.263852782513392
+  },
+  "decoder T 0.6": {
+   "entropy": 2.2288922041647554,
+   "strings_99": 19,
+   "top_string_mass": 0.3309762565795008,
+   "support": 65536,
+   "expected_score": 0.37792449844805304,
+   "distinct16": 7.372943825065821,
+   "top1pct_mass": 0.22333420022552392,
+   "top1pct_distinct16": 2.219080999005621
+  }
+ },
+ "reference net (mlp_5)": {
+  "random order": {
+   "entropy": 7.335079614429194,
+   "strings_99": 18521,
+   "top_string_mass": 0.025471869238334464,
+   "support": 65536,
+   "expected_score": 0.40059227009566606,
+   "distinct16": 15.584009298631994,
+   "top1pct_mass": 0.1171332814272705,
+   "top1pct_distinct16": 1.8270649549340976
+  },
+  "decoder T 0.6": {
+   "entropy": 1.5766628960892648,
+   "strings_99": 16,
+   "top_string_mass": 0.4937059970238775,
+   "support": 65536,
+   "expected_score": 0.2951274947079451,
+   "distinct16": 4.896481007458549,
+   "top1pct_mass": 0.02441464572044007,
+   "top1pct_distinct16": 0.36194497535363446
+  }
+ },
+ "reference law (consistent)": {
+  "random order": {
+   "entropy": 7.335079614429194,
+   "strings_99": 18521,
+   "top_string_mass": 0.025471869238334464,
+   "support": 65536,
+   "expected_score": 0.40059227009566606,
+   "distinct16": 15.584009298631994,
+   "top1pct_mass": 0.1171332814272705,
+   "top1pct_distinct16": 1.8270649549340976
+  },
+  "decoder T 0.6": {
+   "entropy": 1.6669768450113827,
+   "strings_99": 18,
+   "top_string_mass": 0.45873752829161596,
+   "support": 65536,
+   "expected_score": 0.2980731303964011,
+   "distinct16": 5.119197221475648,
+   "top1pct_mass": 0.030396751791216908,
+   "top1pct_distinct16": 0.4470105091159886
+  }
+ },
+ "TraFL target (beta 0.5)": {
+  "random order": {
+   "entropy": 3.8986645497373402,
+   "strings_99": 1230,
+   "top_string_mass": 0.21171417336883147,
+   "support": 65536,
+   "expected_score": 0.7939478329886933,
+   "distinct16": 10.827361242759748,
+   "top1pct_mass": 0.9064226491049633,
+   "top1pct_distinct16": 9.340463141535151
+  },
+  "decoder T 0.6": {
+   "entropy": 1.0061249681804072,
+   "strings_99": 6,
+   "top_string_mass": 0.6640871346580846,
+   "support": 65536,
+   "expected_score": 0.8846582647752383,
+   "distinct16": 3.3525109988404775,
+   "top1pct_mass": 0.9999945709075129,
+   "top1pct_distinct16": 3.352424135838624
+  }
+ }
+}

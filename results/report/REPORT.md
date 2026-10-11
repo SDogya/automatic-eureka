@@ -75,6 +75,24 @@ draws stand in for the MH sample: they give 165 / 2,405 distinct strings where t
   and already a strong mode-seeker at the reference.
 - Readings about paths and diversity are therefore given per sampler.
 
+**Is the decoder's collapse the reference's fault?** (`scripts/decoder_true_law.py`, `decoder_true_law.json`; exact,
+broader base.) The decoder is run on four sets of conditionals:
+
+| law | decoder: strings for 99 % | decoder: top string mass | score, random order → decoder | top-1 % distinct in 16, random → decoder |
+|---|---|---|---|---|
+| true Potts law | 19 | 0.33 | 0.410 → 0.378 | 2.26 → 2.22 |
+| reference network (mlp_5) | 16 | 0.49 | 0.401 → 0.295 | 1.83 → 0.36 |
+| reference's string law, made order-consistent | 18 | 0.46 | 0.401 → 0.298 | 1.83 → 0.45 |
+| TraFL target, β 0.5 | 6 | 0.66 | 0.794 → 0.885 | 9.34 → 3.35 |
+
+- **The concentration is the decoder's own.** It puts 99 % of the true law's mass on 19 strings.
+- **The reference decides which strings it concentrates on.** The reference is only KL 0.10 from the law, yet that is
+  enough to move the decoder onto low-reward strings: score 0.30 vs 0.38, top-1 % diversity 0.36 vs 2.22.
+- **The network's order inconsistency is not the cause:** the consistent version gives about the same.
+- **No string has zero decoder probability here.** The exact zeros are in the step (path) law only.
+- **Even a perfectly fitted TraFL keeps only a third of its top-string diversity** (3.35 of 9.34) when decoded this way,
+  while its score rises.
+
 ## 3. Results on the current base (Potts β 2; reference k = 5; 2 seeds)
 
 **Grid 1** (`results/port_grid1/READING.md`; β 1.5, 5,000 updates, all 11 configurations):

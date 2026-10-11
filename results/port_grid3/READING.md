@@ -58,8 +58,10 @@ RSPO.
 - TraFL with decoder rollouts never reaches the matched level. Its endpoint decoder diversity is 2.1–2.9 against 2.7–4.0.
 - At the decoder distance the two TraFL settings share, comp 4 is about equal (2.9 vs ≈ 3.0, interpolated), while exact
   likelihood is lower (2.1 vs ≈ 2.8).
-- The likely cause is the decoder at the reference: entropy 1.58 nats, 0.36 distinct top-1 % strings in 16 draws, and a
-  law with exact zeros. It feeds the loss a narrow set of strings.
+- The likely cause is the decoder at the reference. It puts 99 % of its mass on 16 strings and 2.4 % on the top-1 %
+  strings (0.36 distinct in 16 draws), so it feeds the loss a narrow, low-reward set of strings.
+- The decoder concentrates even the true law (19 strings), but there it lands on high-reward strings (report §2,
+  `decoder_true_law.json`).
 
 **Scope.** Broader base (Potts β 0.75, MLP k = 5 reference), one reward, 2 seeds, β ∈ {0.25, 0.5}. Comparisons are at
 matched distance. Same-β comparisons across centring (TraFL, TB) and raw-reward (DB, SubTB, Ent-PPO) arms are not
