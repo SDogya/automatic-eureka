@@ -121,7 +121,7 @@ masks, so the drift difference is not the penalty's size. Untested candidates:
 
 ## 5. Correctness
 
-- **Tests:** 94, each a mathematical identity or a comparison against an independent exact computation. Mutation
+- **Tests:** 97, each a mathematical identity or a comparison against an independent exact computation. Mutation
   checks: each new gate was made to fail by breaking its target.
 - **Bit-for-bit continuity:** TraFL (`--arm trafl`, defaults) reproduces the pre-port code bit for bit.
 - **Independent review** (Sonnet, read-only): no sign, normalisation or indexing error in the losses. It found and

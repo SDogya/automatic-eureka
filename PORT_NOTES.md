@@ -1,6 +1,6 @@
 # Port notes: TraFL baselines and a transformer on this repo's length-8 DNA task
 
-Local branch `port-baselines` (from `origin/anton-dev`). Nothing is pushed. Written 2026-10-09.
+Branch `port-baselines` (from `origin/anton-dev`), pushed. Written 2026-10-09; current state and commands: `HANDOFF.md`.
 
 ## What was added (all exact-gated; `uv run python -m pytest`)
 
@@ -88,5 +88,4 @@ logged loss and exact metric identical). Gates were mutation-checked (each fails
 
 ## Next
 
-The answers to the first round of questions and the ordered plan with its gates are in `INTEGRATION_PLAN.md`. The
-one open decision is the environment for the realistic reference (plan §1).
+See `HANDOFF.md` (open decisions, next steps) and `results/report/REPORT.md` (results).
