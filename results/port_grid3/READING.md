@@ -63,6 +63,9 @@ RSPO.
 - The decoder concentrates even the true law (19 strings), but there it lands on high-reward strings (report §2,
   `decoder_true_law.json`).
 
+**Transfer caveat for R4.** On this base the decoder at the reference is worse on reward than random order (score 0.295
+vs 0.401), the reverse of real dLLMs (REPORT §1–2). Decoder rollouts may help where the decoder samples better.
+
 **Scope.** Broader base (Potts β 0.75, MLP k = 5 reference), one reward, 2 seeds, β ∈ {0.25, 0.5}. Comparisons are at
 matched distance. Same-β comparisons across centring (TraFL, TB) and raw-reward (DB, SubTB, Ent-PPO) arms are not
 same-target comparisons (PORT_NOTES, "Units and targets").

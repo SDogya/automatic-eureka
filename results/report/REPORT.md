@@ -27,7 +27,22 @@ The generator is a masked denoiser (MLP, or a transformer) that reveals one posi
 
 Rollouts are on-policy from the random-order generator (JustGRPO: left-to-right). `--rollout decoder` samples
 training completions with the low-confidence-remasking decoder instead, as TraFL's paper does; this is only allowed
-for the per-string arms. Exact metrics at every evaluation:
+for the per-string arms.
+
+**What the default rollout does and does not imply.**
+- **It samples the law that TraFL's loss is defined on.** That law is the model's likelihood, which random order
+  samples exactly.
+- **It is not needed for correctness.** TraFL's fixed point does not depend on the sampler when every string can be
+  drawn, which here is true for both samplers. The sampler changes which strings get trained on, so it affects speed
+  and drift, not the target.
+- **It is not what TraFL's paper deploys.** The paper decodes with the confidence decoder, and its target says nothing
+  about the decoded law. Every metric here is therefore reported under both samplers.
+- **This toy may run in the opposite regime from real dLLMs.**
+  - Here the decoder at the reference is *worse* on reward than random order: score 0.295 vs 0.401.
+  - In LLaDA-type models, confidence decoding is used because it samples better.
+  - The decoder-rollout results (grid 3 R4) may therefore not transfer.
+
+Exact metrics at every evaluation:
 - terminal KL both ways to the reference, trajectory and path KL;
 - score and entropy;
 - left-to-right and low-confidence-decoder laws;
