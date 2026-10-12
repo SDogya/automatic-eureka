@@ -200,7 +200,7 @@ stated is the same (0.76–0.81), and the balance arms' is 0.06–0.07 lower.
 | RSPO, λ 0.01 | λ, weak here | 18.95, still moving | 2.18 | 0.13 | 0.605 | 6.94 / 3.1 | 0.08 | — |
 | RSPO, decoder rollouts | same | 7.44, still moving | 0.46 | 1.82 | 0.620 | 6.18 / **1.63** | 0.10 | — |
 | GRPO | none | 22.25, still moving | 2.95 | 0.05 | 0.617 | 7.18 / 3.2 | 0.08 | — |
-| JustGRPO (trained left to right) | none | 12.12, still moving | 0.77 | 1.6 | 0.606 | 6.93 / 3.0 | 0.08 | — |
+| JustGRPO, random-order view (wrong lens, confound 4) | none | 12.12, still moving | 0.77 | 1.6 | 0.606 | 6.93 / 3.0 | 0.08 | — |
 
 **Reading.**
 - **Reward efficiency at matched distance is 0.61–0.65 for every arm with uniform rollouts.** ESPO with decoder
@@ -307,12 +307,23 @@ At b\* = 0.2, every uniform-rollout arm gets there within 23–471 updates:
 3. **One setting per non-β arm, no sweeps.** ESPO (κ 0.05), RSPO (λ 0.01), ESPO-PPO (μ 8) are each one point on their
    own frontier. "Method X is less diverse" means "at this setting". Matched distance removes the "how far" part, not
    the "which frontier" part.
-4. **JustGRPO is off its own sampler here.** It is trained and natively decoded left to right. Its random-order and
-   confidence-decoder numbers are views of a model never trained to be read that way, so it is handicapped in this
-   table. Its own decoder's metrics are the `ar_*` columns. Read on its own sampler, it does slightly
-   better: score 0.615 at left-to-right KL 1, against 0.606 in the random-order view. That equals GRPO (0.615–0.617)
-   and stays below TraFL and TB (0.63), so its standing on reward efficiency does not change. There is no exact
-   diversity metric for the left-to-right law.
+4. **JustGRPO is read through the wrong lens in most columns.**
+   - **Its protocol** (arXiv 2601.15165, §5–6): it is trained as a left-to-right policy built on a dLLM backbone
+     (LLaDA-Instruct). It is evaluated with the LLaDA protocol: low-confidence remasking in semi-autoregressive blocks of
+     32, one token per step.
+   - **So its training law is the left-to-right law, and its deployment law is the confidence decoder's** (here one
+     block of 8). The random-order law is neither.
+   - **At 10k the lenses disagree sharply** (final checkpoints, exact):
+     - its left-to-right and decoder laws are the same collapsed string (entropy 0.16 / 0.00, TV 0.03 apart);
+     - its random-order law is still broad (entropy 2.1, 6.0 distinct top-1 % strings in 16 draws), TV 0.61 from its
+       left-to-right law.
+   - **Its b\*, shape-KL and random-order diversity entries in this section therefore overstate its spread.** On its
+     own laws it collapses like GRPO.
+   - **Reward efficiency on its training law:** 0.615 at left-to-right KL 1 (random-order view 0.606). That equals
+     GRPO and is below TraFL and TB (0.63).
+   - **For every other arm the lenses agree:** left-to-right vs random-order TV ≤ 0.28 (reference 0.14). In this toy the
+     left-to-right order has no special status, so the toy cannot test JustGRPO's premise that AR order has more
+     reasoning potential in language. It tests only the mechanics.
 5. **Different targets at the same β.** Centred arms target 0.8 β, raw arms β (25 % stronger). This is handled by b\*
    and by matched distance, but any nominal-β comparison is wrong.
 6. **Convergence differs.** TraFL is stationary at 10k. TB, DB and SubTB are still creeping, so their shortfall in
