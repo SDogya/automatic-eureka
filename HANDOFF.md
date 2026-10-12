@@ -20,7 +20,8 @@
 3. `results/port_grid{1,3}/SPEC.md` + `READING.md`: pre-stated predictions and their verdicts. Grid 2: `SPEC.md`
    and the block A endpoints.
 4. `INTEGRATION_PLAN.md`: steps and gates. Only step 6 (the realistic environment) is open.
-5. `FORMULATIONS_V2.md` (RU, canonical, for other project members) with `FORMULATIONS_V2_AUDIT_DETAILS.md` and
+5. `TRAFL_VARIANTS.md` (RU): every TraFL version in this branch, with its code, history and runs.
+6. `FORMULATIONS_V2.md` (RU, canonical, for other project members) with `FORMULATIONS_V2_AUDIT_DETAILS.md` and
    `TRAFL_OBJECTIVE_DISAMBIGUATION.md`.
 
 ## Findings that carry forward (numbers in REPORT §2–4)
