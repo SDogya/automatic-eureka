@@ -1,0 +1,10 @@
+Median path KL / terminal KL by update window (terminal KL in (0.05, 1.5)); value (checkpoints)
+
+| configuration | 1-6 | 6-40 | 40-251 | 251-1585 | 1585-10001 |
+|---|---|---|---|---|---|
+| espo[kappa=0.05, mask_scheme=comp, mask_samples=4, rollout=uniform, rollout_temperature=1.0] transformer_d32_l2_h4_f128 from transformer_d32_l2_h4_f128 {context_source=uniform, contexts=256, group=5, learning_rate=0.0001, reference=initial, ppo_epochs=1, steps=10000, reward=potts_tfbind8} | - | 0.200 (4) | 0.270 (4) | - | - |
+| grpo[] transformer_d32_l2_h4_f128 from transformer_d32_l2_h4_f128 {context_source=uniform, contexts=256, group=5, learning_rate=0.0001, reference=initial, ppo_epochs=1, steps=10000, reward=potts_tfbind8} | - | 0.151 (4) | - | - | - |
+| justgrpo[ppo_epochs=1, eps_clip=0.2] transformer_d32_l2_h4_f128 from transformer_d32_l2_h4_f128 {context_source=uniform, contexts=256, group=5, learning_rate=0.0001, reference=initial, ppo_epochs=1, steps=10000, reward=potts_tfbind8} | - | 0.167 (6) | - | - | - |
+| rspo[rspo_lambda=0.01, advantage_std=True, mask_scheme=iid, mask_samples=4, rollout=uniform, rollout_temperature=1.0] transformer_d32_l2_h4_f128 from transformer_d32_l2_h4_f128 {context_source=uniform, contexts=256, group=5, learning_rate=0.0001, reference=initial, ppo_epochs=1, steps=10000, reward=potts_tfbind8} | - | 0.172 (5) | - | - | - |
+| tb[beta=0.5] transformer_d32_l2_h4_f128 from transformer_d32_l2_h4_f128 {context_source=uniform, contexts=256, group=5, learning_rate=0.0001, reference=initial, ppo_epochs=1, steps=10000, reward=potts_tfbind8} | - | 0.151 (6) | 0.153 (4) | 0.114 (12) | 0.087 (38) |
+| trafl[beta=0.5, estimator=square, mask_scheme=comp, mask_samples=4, var_lambda=0.0, normalization=paper, rollout=uniform, rollout_temperature=1.0] transformer_d32_l2_h4_f128 from transformer_d32_l2_h4_f128 {context_source=uniform, contexts=256, group=5, learning_rate=0.0001, reference=initial, ppo_epochs=1, steps=10000, reward=potts_tfbind8} | - | 0.205 (4) | 0.253 (4) | 0.219 (12) | 0.257 (38) |

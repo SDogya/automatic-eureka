@@ -336,6 +336,35 @@ At b\* = 0.2, every uniform-rollout arm gets there within 23–471 updates:
    metrics, but decoder-level metrics are seed-fragile: decoder TV to the decoded target is 0.30 vs 0.73 for the two
    TraFL comp 4 seeds at 30k.
 
+## 4c. Same methods on a transformer backbone (grid 4; `results/port_grid4/READING.md`)
+
+**Setup.**
+- Reference = start: transformer d32, 26k parameters, pretrained on the broader base (KL 0.14 from the law; it learns
+  rather than stores).
+- Arms: TraFL comp 4, TB, ESPO, RSPO, GRPO, JustGRPO; grid 3's settings; 2 seeds; run locally.
+
+| method | b\* / stated, MLP → transformer | wasted KL @ b\* 0.2 | late path / terminal | score @ KL 1 |
+|---|---|---|---|---|
+| TraFL | 0.80 → 0.82 | 0.15 → 0.12 | 0.19 → 0.26 | 0.637 → 0.629 |
+| TB | 0.91 → 0.95 | 0.16 → 0.14 | 0.10 → 0.09 | 0.639 → 0.618 |
+| ESPO | — | 0.23 → 0.24 | — | 0.629 → 0.607 |
+| GRPO | — | 0.33 → 0.34 | — | 0.617 → 0.611 |
+| JustGRPO (random-order view) | — | 0.33 → 0.40 | — | 0.606 → 0.593 |
+| RSPO | — | 0.35 → 0.41 | — | 0.605 → 0.595 |
+
+**What carries over from the MLP:**
+- the ordering in KL efficiency (wasted KL);
+- TraFL drifting more than TB (3× on the transformer);
+- TraFL keeping the most diversity under the decoder.
+
+**TraFL's under-tilt does not depend on the backbone** (0.82 of the stated tilt), while TB comes within 5 % of its
+stated tilt.
+
+**JustGRPO's views drift further apart on the transformer:** its left-to-right and decoder laws are one string, and its
+random-order law has entropy 3.8–4.4.
+
+**ESPO's path drift is backbone-sensitive:** 0.28 vs 0.10 at matched terminal KL 1.
+
 ## 5. Correctness
 
 - **Tests:** 97, each a mathematical identity or a comparison against an independent exact computation. Mutation

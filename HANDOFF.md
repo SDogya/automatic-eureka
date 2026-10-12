@@ -7,7 +7,7 @@
   exploratory. There are also the MLP and transformer backbones, with the transformer size ablation.
 - 97 tests collected, all green at the last full run; the suite is the gate on the maths.
 - Grids 1, 2A and 3 are finished and read. 2B/C were lost to Kaggle's 12-hour limit.
-- Nothing is running. `ae-grid3-long` (30k-update decoder vs uniform rollouts) finished and is read in
+- Nothing is running. Grid 4 (transformer backbone, 12 runs, local) is done and read in REPORT §4c. `ae-grid3-long` (30k-update decoder vs uniform rollouts) finished and is read in
   `results/port_grid3_long/READING.md`.
 - Final checkpoints of all grid-3 runs and the long runs were pulled into `models/` (git-ignored).
 - The report is `results/report/REPORT.md` (no longer a draft).
