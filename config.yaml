@@ -1,0 +1,119 @@
+# Flat config. PAPER = published; OWN Gxx = explicit choice for a paper gap.
+# USER: permitted replacement of LLaDA-8B-Instruct.
+model_id: dllm-hub/Qwen3-0.6B-diffusion-mdlm-v0.1
+model_revision: c8d24a3f4adaeef46881b450e1bf7d1005203bd7
+local_files_only: true
+trust_remote_code: true
+# OWN hardware: physical nvidia-smi index; GPU1 became busy, use A4000 GPU2.
+gpu: 2
+output_dir: runs
+# OWN G14: hardware / numerical implementation, not author settings.
+dtype: bfloat16
+attention_implementation: sdpa
+compile: true
+compile_scope: masked_token_mean
+compile_backend: inductor
+compile_dynamic: true
+compile_threads: 2
+num_workers: 2
+pin_memory: true
+# OWN G19: independent RNG streams; no exact-reproducibility claim for AMP.
+seed: 42
+mask_seed: 43
+rollout_seed: 44
+eval_seed: 45
+# PAPER §4.1; OWN G06: target modules and adapter initialization.
+lora_rank: 128
+lora_alpha: 128
+lora_targets: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+lora_dropout: 0.0
+lora_bias: none
+lora_init: true
+# PAPER §4.1: 2-layer prompt MLP, mean pooling, detached features.
+# OWN G08/G09: current final hidden states of a clean prompt; width/activation/init.
+head_hidden: 256
+head_activation: SiLU
+head_bias: true
+head_zero_output: true
+head_feature_source: current_clean_prompt_final
+head_pooling: mean_nonpadding_prompt
+# PAPER Algorithm 1 / §4.1. No group std scaling, no group skipping.
+rollouts: 5
+mask_replicates: 4
+# OWN G11/G12: uniform eligible count, two complementary pairs;
+# full -> full endpoint keeps both marginal mask distributions uniform.
+mask_endpoint: repeat_full
+mask_domain: completion_non_eos_nonpadding
+empty_score: 0.0
+completion_eos: truncate_after_first_visible_eos
+# OWN G01–G05: author beta, batch, optimizer, horizon/warmup are unpublished.
+beta: 1.0
+prompt_batch_size: 1
+updates: 100
+optimizer: AdamW
+adam_betas: [0.9, 0.999]
+adam_eps: 1.0e-8
+weight_decay: 0.0
+optimizer_fused: true
+warmup_updates: 0
+# PAPER §4.1: cosine decay with these peak/minimum learning rates.
+# OWN G05: apply before each update; first peak / last minimum; horizon M.
+lr_peak: 6.0e-5
+lr_min: 6.0e-6
+grad_clip: null
+# OWN G10/G20: Fast-dLLM v1 confidence-threshold port to this Qwen, no KV cache.
+# Training settings are our choices, separately from published eval settings.
+train_max_new_tokens: 256
+train_block_size: 32
+train_temperature: 0.6
+train_top_p: 0.91
+train_confidence_threshold: 0.9
+generation_suppress_mask: true
+generation_cache: false
+generation_stop_on_eos: false
+# PAPER §4.2: stochastic nucleus, lengths 256/512, block32, top-p0.91.
+eval_max_new_tokens: [256, 512]
+eval_block_size: 32
+eval_temperature: 0.6
+eval_top_p: 0.91
+eval_confidence_threshold: 0.9
+eval_samples: 16
+eval_pass_k: [1, 2, 4, 5, 8, 16]
+# OWN G16: selected GSM8K subsets; null limit selects the entire official split.
+dataset_id: openai/gsm8k
+dataset_config: main
+dataset_revision: null
+train_split: train
+eval_split: test
+train_limit: 128
+eval_limit: 8
+data_sampling: shuffled_epochs
+# PAPER Appendix E: one user message, no system message. OWN G17: serialization.
+prompt_template: |-
+  You are a math expert. You will be given a question to solve.
+  Solve it step by step. Wrap the final answer in \boxed{} inside the <answer> tags..
+
+  Response Format
+  <reasoning> Your reasoning here </reasoning>
+  <answer> \boxed{...} </answer>
+
+  [Task Prompt]
+  {question}
+enable_thinking: false
+# OWN G15: last balanced boxed answer; exact rational canonicalization, no tolerance.
+reward_mode: last_boxed_exact_number
+invalid_reward: 0.0
+# OWN G19/G21: last checkpoint, logging / evaluation frequency and saved artifacts.
+log_every: 10
+eval_every: 0
+save_every: 10
+# OWN G19: explicit resume from a full optimizer/RNG/DataLoader checkpoint.
+resume_checkpoint: null
+checkpoint_selection: last
+tensorboard_host: 127.0.0.1
+tensorboard_port: 6006
+# Explicit small-run overrides; smoke keeps PAPER G/K/rank/alpha unchanged.
+smoke_updates: 3
+smoke_eval_limit: 2
+smoke_eval_max_new_tokens: [256]
+smoke_log_every: 1
