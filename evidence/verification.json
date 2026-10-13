@@ -1,0 +1,63 @@
+{
+  "status": "passed",
+  "tests": 24,
+  "updates": 3,
+  "train_group_correct": [
+    0.0,
+    3.0,
+    1.0
+  ],
+  "dataset_revision": "740312add88f781978c0658806c59bc2815b9866",
+  "gpu_uuid": "GPU-fe2d8dfd-06f2-a5c4-a7fd-4a5f23947005",
+  "compile_scope": "masked_token_mean",
+  "before": {
+    "256": {
+      "pass@1": 0.40625,
+      "pass@2": 0.5791666666666666,
+      "pass@4": 0.7236263736263736,
+      "pass@5": 0.7707188644688645,
+      "pass@8": 0.8833333333333333,
+      "pass@16": 1.0,
+      "loss/val": 0.24000000953674316
+    }
+  },
+  "after": {
+    "256": {
+      "pass@1": 0.3125,
+      "pass@2": 0.475,
+      "pass@4": 0.6153846153846154,
+      "pass@5": 0.6538461538461539,
+      "pass@8": 0.75,
+      "pass@16": 1.0,
+      "loss/val": 0.12203860282897949
+    }
+  },
+  "checkpoint_step": 3,
+  "tensorboard_tags": [
+    "eval/256/pass@1",
+    "eval/256/pass@2",
+    "eval/256/pass@4",
+    "eval/256/pass@5",
+    "eval/256/pass@8",
+    "eval/256/pass@16",
+    "loss/val/256",
+    "loss/val",
+    "reward/val",
+    "loss/train",
+    "reward/train",
+    "reward/mixed_groups",
+    "score/difference",
+    "log_z/mean",
+    "lr"
+  ],
+  "reload_check": {
+    "mode": "eval",
+    "gpu": 1,
+    "length": 32,
+    "samples": 5,
+    "problems": 1,
+    "status": "passed",
+    "run_dir": "runs/reload-check/20261012T233425.246402Z-eval"
+  },
+  "note": "Two-problem smoke is execution verification, not evidence of a quality gain."
+}

@@ -1,0 +1,7 @@
+{"run_dir": "runs/20261012T232032.630275Z-smoke", "model": "dllm-hub/Qwen3-0.6B-diffusion-mdlm-v0.1", "train_examples": 128, "evaluation_examples": 2, "mode": "smoke"}
+{"step": 0, "evaluation": {"256": {"pass@1": 0.40625, "pass@2": 0.5791666666666666, "pass@4": 0.7236263736263736, "pass@5": 0.7707188644688645, "pass@8": 0.8833333333333333, "pass@16": 1.0, "loss/val": 0.24000000953674316}}}
+{"step": 1, "loss/train": 4.440892098500626e-16, "reward/train": 0.0, "reward/mixed_groups": 0.0, "score/difference": -1.1920929132713809e-08, "log_z/mean": 0.0, "lr": 5.9999999999999995e-05}
+{"step": 2, "loss/train": 0.2396116405725479, "reward/train": 0.6000000238418579, "reward/mixed_groups": 1.0, "score/difference": 0.0002107083855662495, "log_z/mean": 0.0037257096264511347, "lr": 3.3e-05}
+{"step": 3, "loss/train": 0.1602068990468979, "reward/train": 0.20000000298023224, "reward/mixed_groups": 1.0, "score/difference": 0.00015774962957948446, "log_z/mean": 0.0012003988958895206, "lr": 6e-06}
+{"step": 3, "evaluation": {"256": {"pass@1": 0.3125, "pass@2": 0.475, "pass@4": 0.6153846153846154, "pass@5": 0.6538461538461539, "pass@8": 0.75, "pass@16": 1.0, "loss/val": 0.12203860282897949}}}
+Completed: runs/20261012T232032.630275Z-smoke

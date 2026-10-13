@@ -1,0 +1,3 @@
+{"run_dir": "runs/reload-check/20261012T233425.246402Z-eval", "model": "dllm-hub/Qwen3-0.6B-diffusion-mdlm-v0.1", "train_examples": 128, "evaluation_examples": 1, "mode": "eval"}
+{"step": 3, "evaluation": {"32": {"pass@1": 0.0, "loss/val": 0.00014864550030324608}}}
+Completed: runs/reload-check/20261012T233425.246402Z-eval

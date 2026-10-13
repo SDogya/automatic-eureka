@@ -1,0 +1,9 @@
+{
+  "change": "full training resume",
+  "validation": "Python syntax and remote YAML syntax; no tests, smoke or training run",
+  "remote": "sirius03@imladris.velkerr.ru:/home/sirius03/test/trafl",
+  "files": {
+    "run.py": "1740ee4962df2dab8d1a04f449c056c3ca8e5694be4040d8ef8610dcc7598224",
+    "config.yaml": "4023b21fbf6249362be533474c57c8217beb789ae32991195ed4d301315c7c97"
+  }
+}

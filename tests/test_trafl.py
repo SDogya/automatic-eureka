@@ -1,4 +1,4 @@
-"""Independent numerical checks: ../.venv/bin/python -m pytest -q test_trafl.py."""
+"""Original numerical checks, relocated; runtime tests were not executed for this split."""
 
 import itertools
 import math
@@ -11,13 +11,20 @@ import torch
 import yaml
 from torch import nn
 
-import run
-from trafl import (LogZ, antithetic_masks, boxed_reward, center_rewards, generate,
-                   learning_rate, masked_score, masked_token_mean, nucleus_tokens,
-                   pass_at_k, trajectory_loss, trim_completion)
+from trafl import training as run
+from trafl.evaluation import pass_at_k
+from trafl.masking import antithetic_masks
+from trafl.model import LogZ
+from trafl.objective import center_rewards, learning_rate, trajectory_loss
+from trafl.rewards import boxed_reward, trim_completion
+from trafl.sampling import generate, nucleus_tokens
+from trafl.scoring import masked_score, masked_token_mean
 
 
 def test_paper_loss_and_analytic_gradients():
+    r"""Сверить Algorithm 1 loss и его gradients с независимыми численными ожиданиями.
+    
+    Включает group centering, beta, log Z broadcasting и BG reduction."""
     policy = torch.tensor([[-1., -2., -3., -4., -5.], [-.2, -.4, -.6, -.8, -1.]], requires_grad=True)
     reference = torch.tensor([[-1.] * 5, [0.] * 5])
     rewards = torch.tensor([[1., 0., 1., 0., 0.], [0.] * 5])
@@ -32,6 +39,9 @@ def test_paper_loss_and_analytic_gradients():
 
 
 def test_centering_and_all_equal_groups():
+    r"""Проверить mean centering и сохранение all-equal reward groups в loss.
+    
+    Нулевые centered rewards не должны приводить к пропуску group."""
     rewards = torch.tensor([[1., 0., 1., 0., 0.], [1.] * 5, [0.] * 5])
     torch.testing.assert_close(center_rewards(rewards),
                               torch.tensor([[.6, -.4, .6, -.4, -.4], [0.] * 5, [0.] * 5]))
@@ -41,6 +51,9 @@ def test_centering_and_all_equal_groups():
 
 
 def test_masked_mean_uses_original_targets_and_mask_count():
+    r"""Проверить FP32 target log-probability mean по выбранным masked positions.
+    
+    Expected value вычислен напрямую из двух заданных вероятностей."""
     logits = torch.tensor([[math.log(.25), math.log(.75)], [math.log(.8), math.log(.2)]])
     expected = (math.log(.75) + math.log(.8)) / 2
     assert masked_token_mean(logits, torch.tensor([1, 0])).item() == pytest.approx(expected)
@@ -48,6 +61,9 @@ def test_masked_mean_uses_original_targets_and_mask_count():
 
 @pytest.mark.parametrize("count", [1, 2, 3, 4])
 def test_exhaustive_antithetic_uniform_marginals(count, monkeypatch):
+    r"""Исчерпывающе проверить antithetic mask marginals на коротких completions.
+    
+    Перебирает levels/subsets, eligibility и full->full endpoint для N=1..4."""
     eligible = torch.tensor([True] * count + [False])  # One unscored position.
     masses = [defaultdict(float), defaultdict(float)]
     for level in range(1, count + 1):
@@ -73,6 +89,9 @@ def test_exhaustive_antithetic_uniform_marginals(count, monkeypatch):
 
 
 def test_four_masks_empty_completion_and_eos():
+    r"""Проверить K=4 masks, empty eligibility и EOS-prefix trimming.
+    
+    EOS остаётся видимым в token list, а suffix после него отбрасывается."""
     masks = antithetic_masks(torch.tensor([True, False, True]), 4, torch.Generator().manual_seed(43))
     assert masks.shape == (4, 3)
     assert not masks[:, 1].any()
@@ -84,22 +103,33 @@ def test_four_masks_empty_completion_and_eos():
 
 
 class TinyPolicy(nn.Module):
-    """Small differentiable denoiser for the actual scoring / update paths."""
+    r"""Маленький differentiable denoiser для реальных scoring/update paths.
+    
+    Один scalar parameter управляет logits; clean-prompt features используют
+    тот же parameter, чтобы проверять detachment к backbone."""
     def __init__(self, value=.2):
+        r"""Создать один trainable scalar parameter с заданным initial value."""
         super().__init__()
         self.weight = nn.Parameter(torch.tensor(value))
 
     def forward(self, input_ids, use_cache=False, logits_to_keep=0):
+        r"""Выдать synthetic logits нужных positions, сохранив gradient к weight.
+        
+        Поддерживает тот же use_cache/logits_to_keep interface, что Qwen scorer."""
         positions = logits_to_keep if torch.is_tensor(logits_to_keep) else torch.arange(input_ids.shape[1])
         logits = self.weight * torch.arange(4.).expand(input_ids.shape[0], positions.numel(), 4)
         return SimpleNamespace(logits=logits)
 
     def get_base_model(self):
+        r"""Вернуть synthetic backbone с last_hidden_state для prompt feature extraction."""
         return SimpleNamespace(model=lambda ids, use_cache=False:
                                SimpleNamespace(last_hidden_state=self.weight.expand(1, ids.shape[1], 2)))
 
 
 def test_actual_shared_mask_scoring_and_average_before_square():
+    r"""Сверить настоящий masked_score с независимо рассчитанными mask means.
+    
+    Проверяет mean-before-square, trainable score gradient и empty-mask convention."""
     policy = TinyPolicy()
     prompt, completion = torch.tensor([0, 0]), torch.tensor([1, 2, 3])
     masks = torch.tensor([[True, False, False], [False, True, False],
@@ -116,6 +146,7 @@ def test_actual_shared_mask_scoring_and_average_before_square():
 
 
 def test_head_features_detached_but_head_trains():
+    r"""Проверить отсутствие gradients к features при наличии gradients головы."""
     head = LogZ(2, 3, "SiLU", True, False)
     features = torch.ones(1, 2, requires_grad=True)
     head(features).sum().backward()
@@ -124,6 +155,9 @@ def test_head_features_detached_but_head_trains():
 
 
 def test_streamed_gradients_equal_full_batch():
+    r"""Сравнить gradients full batch loss и streamed backward с divisor B*G.
+    
+    Это независимая численная проверка эквивалентности accumulation."""
     rewards = torch.tensor([[1., 0., 1., 0., 0.], [0., 1., 0., 0., 1.]])
     score = torch.arange(10.).reshape(2, 5) / 10
     parameter, intercept = torch.tensor(.3, requires_grad=True), torch.tensor(.2, requires_grad=True)
@@ -138,6 +172,11 @@ def test_streamed_gradients_equal_full_batch():
 
 
 def test_real_update_one_step_and_frozen_reference(monkeypatch):
+    r"""Проверить production update_batch на synthetic rollout/rewards.
+    
+    Monkeypatch применяется к training.sample_group, где update_batch
+    ищет callable после переноса. Проверяется one step, frozen reference
+    и независимое аналитическое ожидание policy gradient."""
     cfg = yaml.safe_load(open("config.yaml"))
     cfg.update(optimizer_fused=False, grad_clip=None)
     policy, reference = TinyPolicy(), TinyPolicy()
@@ -168,6 +207,9 @@ def test_real_update_one_step_and_frozen_reference(monkeypatch):
 
 
 def test_nucleus_crossing_token_and_temperature():
+    r"""Проверить nucleus crossing-token rule и temperature-before-top-p.
+    
+    Частоты сравниваются с conditional categorical distribution."""
     logits = torch.tensor([[math.log(.6), math.log(.25), math.log(.15)]]).expand(4000, -1)
     draws = nucleus_tokens(logits, 1., .7, torch.Generator().manual_seed(7))
     assert not (draws == 2).any()
@@ -179,6 +221,7 @@ def test_nucleus_crossing_token_and_temperature():
 
 
 def test_sampler_completes_without_mask_or_prompt_changes():
+    r"""Проверить завершение block denoising без leftover mask и изменения prompt."""
     prompt = torch.tensor([0, 1])
     generated = generate(TinyPolicy(), prompt, 3, 6, 2, .6, .91, .9,
                          3, True, torch.Generator().manual_seed(44), torch.bfloat16)
@@ -188,6 +231,7 @@ def test_sampler_completes_without_mask_or_prompt_changes():
 
 
 def test_compiled_eager_values_and_gradients():
+    r"""Сравнить eager и compiled TraFL loss, включая gradients по scores."""
     score = torch.tensor([[-.3, -.1, -.4, -.5, -.6]], requires_grad=True)
     reference, rewards, log_z = torch.zeros_like(score), torch.tensor([[1., 0., 0., 1., 0.]]), torch.tensor([.2])
     eager = trajectory_loss(score, reference, rewards, log_z, 1.)
@@ -199,6 +243,7 @@ def test_compiled_eager_values_and_gradients():
 
 
 def test_production_compiled_score_kernel_values_and_gradients():
+    r"""Сравнить production score kernel eager/compiled по outputs и gradients."""
     logits = torch.linspace(-2, 2, 55).reshape(5, 11).requires_grad_()
     targets = torch.tensor([1, 3, 4, 2, 10])
     eager = masked_token_mean(logits, targets)
@@ -210,6 +255,7 @@ def test_production_compiled_score_kernel_values_and_gradients():
 
 
 def test_schedule_endpoints_and_pass_k_known_values():
+    r"""Проверить cosine endpoints и известные combinatorial Pass@k значения."""
     assert learning_rate(0, 100, 6e-5, 6e-6, 0) == pytest.approx(6e-5)
     assert learning_rate(99, 100, 6e-5, 6e-6, 0) == pytest.approx(6e-6)
     assert pass_at_k(0, 16, 5) == 0
@@ -227,4 +273,7 @@ def test_schedule_endpoints_and_pass_k_known_values():
     ("answer is 2", "#### 2", 0),
 ])
 def test_binary_reward(text, answer, result):
+    r"""Проверить boxed numeric reward на exact, invalid и malformed completions.
+    
+    Параметризация включает nested frac, zero denominator и last-boxed rule."""
     assert boxed_reward(text, answer) == result

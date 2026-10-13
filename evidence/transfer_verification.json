@@ -1,0 +1,16 @@
+{
+  "source": "sirius03@imladris.velkerr.ru:/home/sirius03/test/trafl",
+  "destination": "/home/sdogya/Documents/sirius_sota/TraFL_torch",
+  "verified_files": 46,
+  "sha256_all_match_before_documentation_updates": true,
+  "python_syntax": "passed",
+  "documentation_changes": [
+    "README.md: local usage",
+    "code_audit.md: local document links"
+  ],
+  "excluded": [
+    "__pycache__",
+    ".pytest_cache"
+  ],
+  "remote_environment_and_base_model_cache": "outside copied project"
+}

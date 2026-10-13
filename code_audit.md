@@ -1,5 +1,11 @@
 # Боба: независимый аудит реализации TraFL
 
+**Модульная копия:** функции перенесены из `TraFL_torch` в `trafl/`, добавлены
+подробные docstrings и изменены import paths. Сравнение executable AST
+зафиксировано в [modularization.json](evidence/modularization.json).
+Новый независимый runtime audit и тесты для этой версии не выполнялись;
+исторический verdict ниже относится к указанным в нём source hashes.
+
 **Обновление 2026-10-13:** после этого аудита в `run.py` и YAML добавлен full resume
 (optimizer, RNG, DataLoader permutation/cursor, scheduler position, logging context)
 и atomic `training_state.pt`. Приведённые ниже APPROVED, hashes и runtime evidence
@@ -17,11 +23,17 @@
 - **Реальный GPU smoke:** **PASSED**, run `runs/20261012T232032.630275Z-smoke`: три updates и before/after evaluation двух problems, n16/L256. Координатор подтвердил primary process exit0; Боба непосредственно проверил [smoke.log](evidence/smoke.log), [verification.json](evidence/verification.json) и [scalars.json](evidence/scalars.json).
 - **Checkpoint reload:** отдельный public CLI `--mode eval` завершился с exit0 по подтверждению координатора; [reload.log](evidence/reload.log) содержит step3 и Completed. Это диагностическая проверка 1 problem/n5/L32 на GPU1, не второй paper benchmark.
 
-Источник — [PDF](../32236_Beyond_Mode_Seeking_RL_T.pdf), [утверждённая спецификация](../trafl_algorithm_spec.md), [её audit](../trafl_algorithm_audit.md), [lean-code требования](../code.md). Разрешённая пользователем точная база: `dllm-hub/Qwen3-0.6B-diffusion-mdlm-v0.1`, revision `c8d24a3f4adaeef46881b450e1bf7d1005203bd7`. Координатор подтвердил, что exact HF ID прямо назван пользователем в последующем запросе и включён в утверждённый план; первоначальное описание размера «0.8B» не является причиной отклонить этот checkpoint.
+Источник — [PDF](docs/32236_Beyond_Mode_Seeking_RL_T.pdf), [утверждённая спецификация](docs/trafl_algorithm_spec.md), [её audit](docs/trafl_algorithm_audit.md), [lean-code требования](docs/code.md). Разрешённая пользователем точная база: `dllm-hub/Qwen3-0.6B-diffusion-mdlm-v0.1`, revision `c8d24a3f4adaeef46881b450e1bf7d1005203bd7`. Координатор подтвердил, что exact HF ID прямо назван пользователем в последующем запросе и включён в утверждённый план; первоначальное описание размера «0.8B» не является причиной отклонить этот checkpoint.
 
 Ревьюер не редактирует pipeline. Рабочий server directory: `/home/sirius03/test/trafl`. Смена занятого GPU1 на GPU2 и привязка по UUID — явно документированная аппаратная настройка, не изменение алгоритма.
 
 ### Проверенные снимки файлов
+
+При локальном переносе обновлены README и пути к документам в этом отчёте.
+Хеш README в таблице относится к исходной серверной версии, сохранённой в
+[server_README.md](docs/server_README.md); исходный отчёт сохранён в
+[server_code_audit.md](docs/server_code_audit.md). После переноса код и YAML
+отдельно обновлены для resume; таблица сохраняет исторические хеши до изменения.
 
 | Файл | SHA-256 после закрытия C01 и проверки compile-scope change |
 |---|---|
@@ -37,7 +49,7 @@
 
 ### C01 — собственная фаза/порядок cosine scheduler ошибочно помечены PAPER
 
-- **Location in Code:** [config.yaml](config.yaml), строка 57: `# PAPER §4.1. Schedule applied before each update, first peak / last minimum.` Фактическая собственная формула — [trafl.py](trafl.py), строки 170–174; применение перед update — [run.py](run.py), строки 254–258.
+- **Location in Code:** [config.yaml](config.yaml), строка 57: `# PAPER §4.1. Schedule applied before each update, first peak / last minimum.` Фактическая собственная формула — [trafl.py, теперь objective.py](trafl/objective.py), исторические строки 170–174 монолита; применение перед update — [run.py, теперь runner.py](trafl/runner.py), исторические строки 254–258 монолита.
 - **Reference in Paper:** §4.1, с. 5, строки PDF 264–265 задают peak LR 6×10⁻⁵, cosine decay и minimum LR 6×10⁻⁶. Они не задают scheduler placement, cosine horizon/phase и правило first update peak / last update minimum. Спецификация G05 прямо фиксирует отсутствие этих деталей.
 - **The Issue:** code выполняет разрешённый OWN default правильно, но comment относит scheduler placement и endpoints к опубликованным авторским правилам. Это нарушает обязательное различие PAPER / OWN Gxx.
 - **Required Fix:** оставить PAPER только у peak/min/cosine, а before-update placement и first/last endpoints явно пометить `OWN G05`. Код формулы/цикла менять не требуется.
