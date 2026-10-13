@@ -2,6 +2,8 @@
 
 import torch
 
+from .attention import staircase_attention
+
 
 def nucleus_tokens(logits, temperature, top_p, generator):
     r"""Предложить токены из temperature-scaled nucleus distribution.
@@ -69,6 +71,9 @@ def generate(
     Confidence — raw probability предложенного токена; раскрывается threshold set
     и наиболее уверенная active position каждой строки. Cache выключен, EOS не
     завершает denoising досрочно; каждый block допускает максимум его длину steps.
+    В этой ветке используется BD3LM staircase attention: prompt и completion
+    находятся на общей абсолютной block grid; первая completion часть занимает
+    оставшееся место prompt block. Полный prefix пересчитывается без cache.
     Это адаптация threshold-ветки Fast-dLLM v1 к Qwen с nucleus согласно TraFL;
     threshold, mask suppression и EOS conventions — OWN G10/G20."""
     canvas = torch.cat(
@@ -79,8 +84,11 @@ def generate(
         dim=1,
     )
     prefix = prompt.numel()
-    for start in range(0, length, block_size):
-        end = min(start + block_size, length)
+    attention_mask, position_ids = staircase_attention(canvas.shape[1], block_size, prompt.device)
+    start = 0
+    while start < length:
+        # BD3LM blocks begin at absolute position zero, including the prompt.
+        end = min(((prefix + start) // block_size + 1) * block_size - prefix, length)
         positions = torch.arange(prefix + start, prefix + end, device=prompt.device)
         for step in range(end - start):
             active = canvas[:, positions] == mask_id
@@ -88,7 +96,8 @@ def generate(
                 break  # Required control sync for confidence-aware parallel decoding.
             with torch.autocast(device_type=prompt.device.type, dtype=dtype):
                 logits = model(
-                    canvas, use_cache=False, logits_to_keep=positions
+                    canvas, attention_mask=attention_mask, position_ids=position_ids,
+                    use_cache=False, logits_to_keep=positions
                 ).logits.float()
             probabilities = logits.softmax(dim=-1)
             if suppress_mask:
@@ -102,6 +111,7 @@ def generate(
             )
             transfer |= forced & active  # Highest-confidence token is always accepted.
             canvas[:, positions] = torch.where(transfer, proposed, canvas[:, positions])
+        start = end
     return canvas[:, prefix:]
 
 

@@ -112,7 +112,7 @@ class TinyPolicy(nn.Module):
         super().__init__()
         self.weight = nn.Parameter(torch.tensor(value))
 
-    def forward(self, input_ids, use_cache=False, logits_to_keep=0):
+    def forward(self, input_ids, use_cache=False, logits_to_keep=0, attention_mask=None, position_ids=None):
         r"""Выдать synthetic logits нужных positions, сохранив gradient к weight.
         
         Поддерживает тот же use_cache/logits_to_keep interface, что Qwen scorer."""
@@ -122,7 +122,7 @@ class TinyPolicy(nn.Module):
 
     def get_base_model(self):
         r"""Вернуть synthetic backbone с last_hidden_state для prompt feature extraction."""
-        return SimpleNamespace(model=lambda ids, use_cache=False:
+        return SimpleNamespace(model=lambda ids, use_cache=False, attention_mask=None, position_ids=None:
                                SimpleNamespace(last_hidden_state=self.weight.expand(1, ids.shape[1], 2)))
 
 
@@ -134,7 +134,7 @@ def test_actual_shared_mask_scoring_and_average_before_square():
     prompt, completion = torch.tensor([0, 0]), torch.tensor([1, 2, 3])
     masks = torch.tensor([[True, False, False], [False, True, False],
                           [True, True, False], [True, False, False]])
-    score = masked_score(policy, prompt, completion, masks, 3, torch.bfloat16, 0.)
+    score = masked_score(policy, prompt, completion, masks, 3, torch.bfloat16, 0., 32)
     normalizer = math.log(sum(math.exp(.2 * i) for i in range(4)))
     per_mask = [.2 - normalizer, .4 - normalizer, .3 - normalizer, .2 - normalizer]
     assert score.item() == pytest.approx(sum(per_mask) / 4, abs=1e-6)
@@ -142,7 +142,7 @@ def test_actual_shared_mask_scoring_and_average_before_square():
     score.backward()
     assert policy.weight.grad is not None
     assert masked_score(policy, prompt, torch.tensor([3]), torch.zeros(4, 1, dtype=torch.bool),
-                        3, torch.bfloat16, 0.).item() == 0
+                        3, torch.bfloat16, 0., 32).item() == 0
 
 
 def test_head_features_detached_but_head_trains():

@@ -2,6 +2,8 @@
 
 import torch
 
+from .attention import staircase_attention
+
 
 def masked_token_mean(logits, targets):
     r"""Усреднить log probabilities исходных target tokens в FP32.
@@ -20,7 +22,7 @@ def masked_token_mean(logits, targets):
 
 
 
-def masked_score(model, prompt, completion, masks, mask_id, dtype, empty_score):
+def masked_score(model, prompt, completion, masks, mask_id, dtype, empty_score, block_size):
     r"""Оценить Eq. (4): mean по masked positions, затем mean по K masks.
     
     Args:
@@ -31,6 +33,7 @@ def masked_score(model, prompt, completion, masks, mask_id, dtype, empty_score):
         mask_id: Token ID mask конкретного tokenizer.
         dtype: Autocast dtype neural forward; log-softmax/reductions остаются FP32.
         empty_score: Scalar convention для mask без выбранных позиций.
+        block_size: BD3LM staircase block size из train/eval YAML settings.
     
     Returns:
         Scalar surrogate score с gradients, если caller не отключил autograd.
@@ -38,7 +41,12 @@ def masked_score(model, prompt, completion, masks, mask_id, dtype, empty_score):
         берутся из исходной completion, logits вычисляются только для masked positions.
     
     Reference freezing/no_grad задаются caller. EOS eligibility определяется masks.
-    Score является surrogate, а не точным likelihood используемого decoder."""
+    Score является surrogate, а не точным likelihood используемого decoder.
+    Во всех corruptions используется одна block-causal geometry полного
+    prompt+completion; target tokens и Eq. (4) reductions не изменены."""
+    attention_mask, position_ids = staircase_attention(
+        prompt.numel() + completion.numel(), block_size, prompt.device
+    )
     scores = []
     for mask in masks:
         positions = mask.nonzero().flatten().to(prompt.device, non_blocking=True)
@@ -49,7 +57,8 @@ def masked_score(model, prompt, completion, masks, mask_id, dtype, empty_score):
         tokens[prompt.numel() + positions] = mask_id
         with torch.autocast(device_type=prompt.device.type, dtype=dtype):
             logits = model(
-                tokens[None], use_cache=False, logits_to_keep=prompt.numel() + positions
+                tokens[None], attention_mask=attention_mask, position_ids=position_ids,
+                use_cache=False, logits_to_keep=prompt.numel() + positions
             ).logits[0]
         scores.append(masked_token_mean(logits, completion[positions]))
     return torch.stack(scores).mean()

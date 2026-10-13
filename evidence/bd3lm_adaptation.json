@@ -1,0 +1,39 @@
+{
+  "model_id": "dllm-hub/Qwen3-0.6B-diffusion-bd3lm-v0.1",
+  "model_revision": "60f77bba67ba94231c16f5fb29bc66c500b038f1",
+  "parent_branch": "modular",
+  "branch": "bd3lm",
+  "attention": "staircase: key_block <= query_block; absolute unpadded positions",
+  "generation_blocks": "prompt-aligned, first partial block, no cache",
+  "score": "Eq. (4) shared masks and reductions unchanged; backbone attention adapted",
+  "unchanged_files": [
+    "run.py",
+    "trafl/objective.py",
+    "trafl/masking.py",
+    "trafl/rewards.py",
+    "trafl/checkpoint.py",
+    "trafl/data.py",
+    "trafl/runner.py"
+  ],
+  "runtime_tests": "not run",
+  "runtime_training_evaluation": "not run",
+  "static_syntax_import_call_verification": "passed",
+  "source_sha256": {
+    "run.py": "fc436c934bcc978b7672ed0c5acce9989e8686c84bc0cab621756a9232e108d0",
+    "tests/test_bd3lm.py": "beee725fd9f09077841bd342523bab6d65787e00184c78b28785953a876fc90d",
+    "tests/test_trafl.py": "ccc087a5bd415b94418927c4ac56711fa0164a552df8f2f3633caa2ca445b130",
+    "trafl/__init__.py": "735be5ecc72efbea4d250a7b5c72a252a283c2e581bfaddd952dc39c6cd06ede",
+    "trafl/attention.py": "6af570186efd1f7930f6f18b752b248b8721067e937b4e56188f055e585288ba",
+    "trafl/checkpoint.py": "dbfd923283dd5bf9de926bfaac56f836c9fc4658908822608dde2b6331e12d8a",
+    "trafl/data.py": "e25dbf74f955286f289039ea10a487fe64dd89eac38bf57b0398f7576f935f65",
+    "trafl/evaluation.py": "dfb97ca1d730c84f6dc0b07fd21dd80b01f638b60d166d4a2e5106b3d20695f2",
+    "trafl/masking.py": "a6b6e4f7e1d984615f2b8f9eaf10448ef18324a10241c209dc2ac24860b52b77",
+    "trafl/model.py": "a585ca6b3f89c994dc13fe0288c8cf6ac6f1cf38d74af88b6de43d28a19f1f30",
+    "trafl/objective.py": "a4d3ea093c4e423e501e8d5158b49fd4db49a7eb532e1b31b92376a41c2af248",
+    "trafl/rewards.py": "e2445ce57b913afce16eb9e54b5d3828d7871989e187141e4d4b8ece986d20a2",
+    "trafl/runner.py": "f650b831dbeb17b6e1cb29daaffc3572950e4d8c6b85f830c9cd677918e8af9f",
+    "trafl/sampling.py": "2f57bc187fd28f0aed461deadfc7fc503f0ede5a72518409aff06942b1c7fda5",
+    "trafl/scoring.py": "ef77491037d730a0bb42b03aa0975d9ab7bf05431e8fc835de9767e2468e5d2a",
+    "trafl/training.py": "05eb73992b8749fb0f37c3f4d1a8fa0b37be93f4720085cdb5909b6cb1b7bc9d"
+  }
+}

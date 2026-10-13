@@ -3,6 +3,8 @@
 import torch
 from torch import nn
 
+from .attention import staircase_attention
+
 
 class LogZ(nn.Module):
     r"""Двухслойная prompt-dependent MLP для scalar log Z в TraFL.
@@ -46,23 +48,27 @@ class LogZ(nn.Module):
 
 
 @torch.no_grad()
-def prompt_features(policy, prompt, dtype):
+def prompt_features(policy, prompt, dtype, block_size):
     r"""Извлечь detached mean-pooled final states чистого prompt.
     
     Args:
         policy: Current PEFT policy; get_base_model().model возвращает backbone.
         prompt: Unpadded long tensor [P] на GPU без completion suffix.
         dtype: BF16/другая поддержанная autocast dtype для backbone forward.
+        block_size: BD3LM block size, такой же как в текущем train/eval protocol.
     
     Returns:
         FP32 detached tensor [1, H], mean по всем P nonpadding prompt positions.
     
     Функция целиком no_grad; cache выключен. Выбор final states текущей policy
-    на отдельном clean-prompt forward — OWN G09. Режим eval/train задаётся caller."""
+    на отдельном clean-prompt forward — OWN G09. Режим eval/train задаётся caller.
+    Prompt forward использует тот же staircase attention, что policy scores."""
+    attention_mask, position_ids = staircase_attention(prompt.numel(), block_size, prompt.device)
     with torch.autocast(device_type=prompt.device.type, dtype=dtype):
         hidden = (
             policy.get_base_model()
-            .model(prompt[None], use_cache=False)
+            .model(prompt[None], attention_mask=attention_mask,
+                   position_ids=position_ids, use_cache=False)
             .last_hidden_state
         )
     return hidden.float().mean(dim=1).detach()

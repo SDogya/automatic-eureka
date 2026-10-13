@@ -1,86 +1,85 @@
-# TraFL: версия с логическими модулями
+# TraFL с Qwen3 BD3LM
 
-Рабочая копия сервера: `/home/sirius03/test/trafl`, ветка `modular`.
-Исходный монолит сохранён в ветке `main`; локальная модульная копия —
-`/home/sdogya/Documents/sirius_sota/TraFL_modular`. Вычисления, signatures, checkpoint format, YAML и порядок
-действий исходного пайплайна сохранены. Изменены расположение функций, импорты
-и docstrings: описаны формы tensors, device/RNG, gradients, side effects,
-опубликованные правила и собственные conventions.
+Серверный проект: `/home/sirius03/test/trafl`, Git branch `bd3lm`, созданная
+от `modular`. Локальные исходники: `/home/sdogya/Documents/sirius_sota/TraFL_bd3lm`.
+Предыдущие версии сохранены в `main` (монолит) и `modular` (MDLM).
 
-## Карта файлов
+Основная policy и frozen reference:
+`dllm-hub/Qwen3-0.6B-diffusion-bd3lm-v0.1`, revision
+`60f77bba67ba94231c16f5fb29bc66c500b038f1`. Модель и tokenizer скачаны
+в HF cache сервера. YAML использует `local_files_only: true` и
+`output_dir: runs/bd3lm`.
 
-```text
-TraFL_modular/
-├── run.py                    # CLI entry point
-├── config.yaml               # исходный плоский YAML
-├── trafl/
-│   ├── __init__.py
-│   ├── runner.py             # исходная orchestration и training loop
-│   ├── data.py               # dataset, chat tokenization, resume-aware batches
-│   ├── sampling.py           # nucleus, block diffusion, train/eval wrapper
-│   ├── rewards.py            # boxed numeric reward и EOS trimming
-│   ├── masking.py            # antithetic masks
-│   ├── scoring.py            # Eq. (4), masked-token mean, compile target
-│   ├── objective.py          # centering, residual, loss, LR schedule
-│   ├── model.py              # log Z head и prompt features
-│   ├── training.py           # completion rewards и один optimizer update
-│   ├── evaluation.py         # Pass@k, validation loss, eval artifacts
-│   └── checkpoint.py         # JSON, atomic checkpoint, RNG restore
-├── tests/test_trafl.py        # исходные численные проверки
-├── docs/                     # статья, спецификация, историческая документация
-├── evidence/                 # сохранённые подтверждения и проверка переноса
-├── code_audit.md             # исторический аудит с оговоркой о версии
-└── runs/                     # копии имеющихся результатов и checkpoint
-```
+## Адаптация block diffusion
 
-`runner.main()` сохранён целиком: model/reference initialization, LoRA/head,
-logging, evaluation и resume следуют прежнему порядку. Отдельных framework,
-factory, новых configuration layers или дополнительных runtime abstractions нет.
+Checkpoint использует тот же Qwen attention interface, что MDLM. Без явной
+4D mask custom backbone остаётся полностью bidirectional; название модели
+не включает block causality автоматически. Поэтому добавлен модуль
+`trafl/attention.py`: query block видит свой блок и предыдущие, будущие
+блоки скрыты. Position IDs — абсолютные и непрерывные, начиная с нуля.
+Loader использует unpadded rows, EOS остаётся видимым context token.
 
-## Запуск
+Staircase mask передаётся во все forward paths:
 
-На сервере используется окружение `/home/sirius03/test/.venv`.
-Из корня проекта сначала активируй его: `source ../.venv/bin/activate`.
-Переключение версий: `git switch main` или `git switch modular`.
+- generation текущей policy;
+- masked score текущей policy и reference;
+- отдельный clean-prompt forward для detached log Z features.
 
-С активированным окружением:
+Block size в scoring/head соответствует `train_block_size` или `eval_block_size`
+текущего protocol. Значение 32 совпадает с model-card default и evaluation
+статьи TraFL. В generation grid отсчитывается от начала всего prompt:
+при P % block_size != 0 сначала заполняется остаток prompt block, затем
+полные blocks и последний partial block. Prefix пересчитывается без cache,
+в том числе prompt positions, которые входят в первый completion block.
+
+Nucleus top-p .91, temperature, confidence threshold/forced maximum,
+mask suppression и EOS trimming сохраняют предыдущие собственные conventions.
+Никакого logits shift нет: predictions относятся к тем же masked positions.
+
+Ядро TraFL сохранено: G5, K4, group reward centering, shared corruptions,
+mean token score и mean K до square, BG normalization, frozen reference,
+LoRA 128/128, detached two-layer log Z head и один joint optimizer update.
+`objective.py`, reward/mask rules и full-resume schema не менялись.
+Staircase architecture — адаптация разрешённой пользователем модели, а не
+описание backbone LLaDA из оригинального эксперимента авторов.
+
+## Запуск на сервере
 
 ```bash
+cd /home/sirius03/test/trafl
+git switch bd3lm
+source ../.venv/bin/activate
 python run.py --config config.yaml --mode smoke
 python run.py --config config.yaml --mode train
-python run.py --config config.yaml --mode eval --checkpoint runs/ИМЯ/checkpoint
-python run.py --config config.yaml --mode train --resume runs/ИМЯ/checkpoint
+python run.py --config config.yaml --mode eval --checkpoint runs/bd3lm/ИМЯ/checkpoint
+python run.py --config config.yaml --mode train --resume runs/bd3lm/ИМЯ/checkpoint
 tensorboard --logdir runs --host 127.0.0.1 --port 6006
 ```
 
-Для ручного запуска перенесённых тестов: `python -m pytest -q tests/`.
-В этой работе тесты, training и evaluation не запускались.
-Зависимости и базовая модель нужны те же: PyTorch, Transformers, PEFT, datasets,
-huggingface_hub, PyYAML, TensorBoard; pytest для тестов. GPU index и доступность
-HF cache задаются в исходном `config.yaml`, как в предыдущей версии.
-Подробности алгоритма, окружения и full resume сохранены в
-[исходном README](docs/monolithic_README.md).
+Локальный запуск использует то же CLI после подготовки окружения и HF cache;
+физический `gpu` задаётся YAML. Checkpoints этой модели нужно обучать заново:
+MDLM adapters/resume checkpoints относятся к другой base revision и attention
+protocol. Full resume продолжается из BD3LM checkpoint с его saved config/RNG.
 
-## Проверка сохранения кода
+## Модули и источники
 
-Для всех 26 top-level functions/classes сравнили исходный и перенесённый AST
-после удаления docstrings. Единственная правка внутри исполняемого тела —
-`import trafl as equations` заменён на `from . import scoring as equations`:
-`torch.compile` продолжает заменять kernel в том модуле, где `masked_score`
-ищет `masked_token_mean`. Тела методов `LogZ` также входят в сравнение.
+Карта исходной модулизации и описание full resume сохранены в
+[предыдущем README](docs/mdlm_modular_README.md).
+BD3LM additions: `attention.py`, geometry kwargs в `scoring.py` и `model.py`,
+absolute-block boundaries в `sampling.py`, block-size arguments у callers
+в `training.py` и `evaluation.py`. Плоский YAML задаёт model ID/revision,
+train/eval block size и остальные прежние настройки.
 
-В тестах изменены только import paths, docstrings и цель `import run`:
-теперь это `trafl.training`, чтобы monkeypatch `sample_group` действовал
-на реальные globals `update_batch`. Тела тестов и synthetic policy совпадают.
-YAML скопирован побайтово. Статически проверены синтаксис, имена module globals
-и существование относительных import targets. Runtime equivalence отдельно
-не проверялась. Карта всех перенесённых symbols и source hashes лежит в
-[modularization.json](evidence/modularization.json).
+- [Model card BD3LM](https://huggingface.co/dllm-hub/Qwen3-0.6B-diffusion-bd3lm-v0.1)
+- [Model code, pinned revision](https://huggingface.co/dllm-hub/Qwen3-0.6B-diffusion-bd3lm-v0.1/blob/60f77bba67ba94231c16f5fb29bc66c500b038f1/modeling_qwen3.py)
+- [TraFL PDF](docs/32236_Beyond_Mode_Seeking_RL_T.pdf)
+- [Adaptation record](evidence/bd3lm_adaptation.json)
 
-Существующие checkpoints используют state_dict и tensors, поэтому перенос
-Python-модулей не меняет их schema. Скопированный старый smoke checkpoint
-содержит evaluation weights; его недостающий full optimizer/RNG context
-от этого переноса не появляется.
+## Статус проверки
 
-Исторические reports и результаты в `docs/`, `evidence/`, `runs/` относятся
-к исходным версиям. Они не являются новым runtime audit модульной версии.
+Python/YAML syntax и import/call targets проверены статически.
+Новые checks в `tests/test_bd3lm.py` описывают known staircase matrix и
+partial/aligned prompt boundaries; старые synthetic denoisers принимают
+новые attention kwargs. Тесты, real smoke, training и evaluation для BD3LM
+не запускались по ранее указанному пользователем ограничению на тесты.
+Исторический audit и numerical results в docs/evidence относятся к MDLM.

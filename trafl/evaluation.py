@@ -100,7 +100,7 @@ def evaluate(
             rewards = torch.tensor(reward_list[: cfg["rollouts"]], device=device)
             centered = rewards - rewards.mean()
             with torch.no_grad():
-                log_z = head(prompt_features(policy, prompt, dtype)).squeeze(0)
+                log_z = head(prompt_features(policy, prompt, dtype, cfg["eval_block_size"])).squeeze(0)
                 losses = []
                 for g, tokens in enumerate(ids[: cfg["rollouts"]]):
                     eligible = torch.tensor(
@@ -118,6 +118,7 @@ def evaluate(
                         tokenizer.mask_token_id,
                         dtype,
                         cfg["empty_score"],
+                        cfg["eval_block_size"],
                     )
                     ref_score = masked_score(
                         reference,
@@ -127,6 +128,7 @@ def evaluate(
                         tokenizer.mask_token_id,
                         dtype,
                         cfg["empty_score"],
+                        cfg["eval_block_size"],
                     )
                     losses.append(
                         balance_residual(

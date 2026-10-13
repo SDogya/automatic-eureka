@@ -96,7 +96,7 @@ def update_batch(
         )
         rewards = torch.tensor(reward_list, device=device)
         centered = rewards - rewards.mean()
-        features = prompt_features(policy, prompt, dtype)
+        features = prompt_features(policy, prompt, dtype, cfg["train_block_size"])
         policy.train()
         stats[1] += rewards.sum() / denominator
         stats[2] += (rewards.max() != rewards.min()).float() / len(rows)
@@ -114,6 +114,7 @@ def update_batch(
                 tokenizer.mask_token_id,
                 dtype,
                 cfg["empty_score"],
+                cfg["train_block_size"],
             )
             with torch.no_grad():
                 ref_score = masked_score(
@@ -124,6 +125,7 @@ def update_batch(
                     tokenizer.mask_token_id,
                     dtype,
                     cfg["empty_score"],
+                    cfg["train_block_size"],
                 )
             log_z = head(features).squeeze(0)
             residual = balance_residual(

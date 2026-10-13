@@ -1,5 +1,11 @@
 # Боба: независимый аудит реализации TraFL
 
+**Ветка BD3LM:** модель заменена на Qwen3-0.6B-diffusion-bd3lm-v0.1,
+добавлены staircase attention во всех neural paths и prompt-aligned decoding
+blocks. Это отдельная адаптация backbone; предыдущий APPROVED не относится
+к ней. Связанные изменения описаны в README и evidence/bd3lm_adaptation.json.
+Runtime tests, training и evaluation этой ветки не запускались.
+
 **Модульная копия:** функции перенесены из `TraFL_torch` в `trafl/`, добавлены
 подробные docstrings и изменены import paths. Сравнение executable AST
 зафиксировано в [modularization.json](evidence/modularization.json).
