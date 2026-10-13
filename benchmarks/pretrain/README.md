@@ -42,3 +42,22 @@ TensorBoard records completed-problem Pass@k, parsing/special-token diagnostics,
 lengths, reveal confidence, throughput, model calls, GPU memory and final CI
 bounds. Partial progress is explicitly marked in `progress.json`. There is no
 training loss or learning rate for a frozen pretrained benchmark.
+
+## Seven-GPU parallel run
+
+The original full runs on GPUs 1 and 6 continue independently. Five more runs
+use `config_shards/gpu{0,2,3,4,5}.yaml` and disjoint local Parquet slices of the
+same 1319-row main/test file. The shard manifest gives their original row ranges
+and hashes. GPUs 0 and 3 use microbatch 1 because other jobs already occupy
+their 8 GB cards. Each process has its own results, traces, TensorBoard events,
+PID and log under `runs/pretrain_gsm8k_shards/gpuN`.
+
+`merge.py --watch` reads committed chunks, checks hashes, source model weights,
+sampler/prompt/reward settings, and original question/answer text. It takes the
+first complete 16-answer group for each of original IDs 0–63 from the two full
+runs, then maps local IDs from the five shards back to original IDs 64–1318.
+It never mixes answers from different runs within one problem. Combined progress
+and TensorBoard events are under `runs/pretrain_gsm8k_merged`; at full coverage
+it writes all 21,104 answers, task-level bootstrap distributions, metrics and
+`complete.json`. Each answer has its source run and trace path. Original full
+runs continue generating and keep their own independent results.

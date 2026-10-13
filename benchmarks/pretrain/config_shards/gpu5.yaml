@@ -1,0 +1,53 @@
+# Independent original-GSM8K shard [474:884); global IDs restored by merge.py.
+# USER: pure pretrained baseline, no TraFL and no adapters.
+model_id: dllm-hub/Qwen3-0.6B-diffusion-bd3lm-v0.1
+model_revision: 60f77bba67ba94231c16f5fb29bc66c500b038f1
+dataset_path: datasets/gsm8k/shards/main_test_0474_0884.parquet
+dataset_manifest: datasets/gsm8k/download_manifest.json
+dataset_source: johnsonhk88/gsm8k-grade-school-math-8k-dataset-for-llm
+dataset_version: 3
+dataset_split: main/test[474:884]
+expected_problems: 410
+samples: 16
+microbatch: 4
+gpu: 5
+dtype: bfloat16
+attention_implementation: sdpa
+# Native sampler control flow remains eager; no compilation or sampler rewrite.
+compile: false
+num_workers: 2
+pin_memory: true
+seed: 1005
+output_dir: runs/pretrain_gsm8k_shards/gpu5
+# MODEL recommendation except USER stochastic temperature instead of greedy 0.
+max_new_tokens: 256
+steps: 256
+steps_per_block: null
+block_size: 32
+temperature: 0.6
+remasking: low_confidence
+stochastic_transfer: false
+cfg_scale: 0.0
+cfg_keep_tokens: null
+right_shift_logits: false
+# USER: preserve boxed prompt; differs from official gsm8k_cot Q:/A: protocol.
+prompt_template: |-
+  You are a math expert. You will be given a question to solve.
+  Solve it step by step. Wrap the final answer in \boxed{} inside the <answer> tags..
+
+  Response Format
+  <reasoning> Your reasoning here </reasoning>
+  <answer> \boxed{...} </answer>
+
+  [Task Prompt]
+  {question}
+enable_thinking: false
+reward_mode: last_boxed_exact_number
+pass_k: [1, 2, 4, 5, 8, 16]
+bootstrap_repetitions: 10000
+bootstrap_seed: 46
+confidence_level: 0.95
+log_every: 10
+initial_check_problems: 2
+tensorboard_host: 127.0.0.1
+tensorboard_port: 6006
