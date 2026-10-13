@@ -1,0 +1,25 @@
+# Importing dllm also imports its evaluation/trainer namespaces. These are
+# runtime imports only; DeepSpeed, CUDA extensions and training are unnecessary.
+torch==2.8.0+cu126
+transformers==4.57.0
+accelerate==1.11.0
+peft==0.17.1
+datasets==4.2.0
+sentencepiece==0.2.0
+lm-eval==0.4.13
+trl==0.29.1
+torchmetrics==1.8.2
+tyro==0.9.35
+wandb==0.22.2
+omegaconf==2.3.0
+tqdm==4.67.1
+matplotlib==3.10.7
+rich==14.2.0
+numpy==2.2.6
+pyarrow==21.0.0
+tensorboard==2.20.0
+pyyaml==6.0.3
+huggingface-hub==0.36.2
+kagglehub==1.0.2
+setuptools==80.9.0
+wheel==0.45.1
