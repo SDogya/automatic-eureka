@@ -65,3 +65,10 @@ merged answer links back to its source run and native trace archive.
 Earlier overlapping full runs and the first parallel attempt are stopped and
 remain under `runs/pretrain_gsm8k*` with their saved partial answers. Their
 results do not enter the active disjoint run.
+
+`supervise_disjoint.py` checks the seven worker PIDs and merger once per minute.
+If a process exits before `complete.json`, it restarts with `--resume` from its
+verified saved chunks; after three exits in an hour it marks that process blocked
+in `runs/pretrain_disjoint_merged/supervisor_status.json`. Stop the supervisor
+before intentionally stopping these processes. A source that is blocked keeps
+all committed answers and native traces for manual recovery.
