@@ -2,6 +2,7 @@
 # USER: permitted replacement of LLaDA-8B-Instruct.
 model_id: dllm-hub/Qwen3-0.6B-diffusion-bd3lm-v0.1
 model_revision: 60f77bba67ba94231c16f5fb29bc66c500b038f1
+training_protocol: bd3lm_cached_nucleus_v1
 local_files_only: true
 trust_remote_code: true
 # OWN hardware: physical nvidia-smi index; GPU1 became busy, use A4000 GPU2.
@@ -11,7 +12,7 @@ output_dir: runs/bd3lm
 dtype: bfloat16
 attention_implementation: sdpa
 compile: true
-compile_scope: masked_token_mean
+compile_scope: score_reductions
 compile_backend: inductor
 compile_dynamic: true
 compile_threads: 2
@@ -40,6 +41,10 @@ head_pooling: mean_nonpadding_prompt
 # PAPER Algorithm 1 / §4.1. No group std scaling, no group skipping.
 rollouts: 5
 mask_replicates: 4
+# OWN hardware batching: 5 completions × 4 masks on A100; reduce completion
+# chunk/microbatch on small cards. This does not change B/G/K or loss weighting.
+score_completion_batch_size: 5
+score_microbatch: 20
 # OWN G11/G12: uniform eligible count, two complementary pairs;
 # full -> full endpoint keeps both marginal mask distributions uniform.
 mask_endpoint: repeat_full
@@ -62,7 +67,7 @@ lr_peak: 6.0e-5
 lr_min: 6.0e-6
 grad_clip: null
 # USER model adaptation: BD3LM staircase attention, absolute prompt-aligned blocks.
-# MODEL CARD: block size 32. OWN G10/G20: threshold+nucleus, no KV cache.
+# MODEL CARD: block size 32. OWN G10/G20: threshold+nucleus, completed-prefix cache.
 # Training settings are our choices, separately from published eval settings.
 train_max_new_tokens: 256
 train_block_size: 32
@@ -70,8 +75,15 @@ train_temperature: 0.6
 train_top_p: 0.91
 train_confidence_threshold: 0.9
 generation_suppress_mask: true
-generation_cache: false
-generation_stop_on_eos: false
+generation_cache: true
+generation_stop_on_eos: true
+generation_compile: true
+generation_cuda_graph: true
+# OWN hardware: enough entries for common 256/512-token canvases; small
+# limits cause capture thrashing when each answer spans more cached shapes.
+generation_graph_limit: 32
+# Memory-efficient SDPA supports the explicit block mask in forward/backward.
+sdpa_backend: efficient
 # PAPER §4.2: stochastic nucleus, lengths 256/512, block32, top-p0.91.
 eval_max_new_tokens: [256, 512]
 eval_block_size: 32

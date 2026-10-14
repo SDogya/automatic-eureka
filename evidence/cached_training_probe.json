@@ -1,0 +1,33 @@
+{
+  "model_id": "dllm-hub/Qwen3-0.6B-diffusion-bd3lm-v0.1",
+  "revision": "60f77bba67ba94231c16f5fb29bc66c500b038f1",
+  "torch": "2.8.0+cu126",
+  "gpu": "Quadro RTX 4000",
+  "dtype": "float16",
+  "prompt_tokens": 15,
+  "completion_tokens": 32,
+  "rollouts": 5,
+  "masks": 4,
+  "temperature": 0.6,
+  "top_p": 0.91,
+  "greedy_tokens_equal": true,
+  "score_max_difference": 0.0009088516235351562,
+  "rollout_before_seconds": 3.7554215480049606,
+  "rollout_after_cold_seconds": 4.745337246014969,
+  "rollout_after_warm_seconds": 1.471263638988603,
+  "rollout_speedup": 2.552514347861248,
+  "score_before_seconds": 2.271399446995929,
+  "score_after_seconds": 0.5458668459905311,
+  "score_speedup": 4.161087019077414,
+  "joint_update_seconds": 13.437119374022586,
+  "joint_update_peak_gib": 3.8317785263061523,
+  "joint_update_stats": [
+    0.010000000707805157,
+    0.0,
+    0.0,
+    0.0,
+    0.10000000894069672
+  ],
+  "frozen_reference": true,
+  "lora_gradients_nonzero": true
+}

@@ -5,6 +5,7 @@ import itertools
 import json
 import os
 import subprocess
+import time
 from datetime import datetime, timezone
 from importlib.metadata import version
 from pathlib import Path
@@ -62,6 +63,8 @@ def main():
         resume_state = torch.load(
             Path(resume) / "training_state.pt", map_location="cpu", weights_only=False
         )
+        assert resume_state["config"].get("training_protocol") == cfg["training_protocol"], (
+            "Old sampler resume state: use the before-optimization commit or start a new run")
         # Continue the original horizon/data/algorithm; only location and GPU can change.
         hardware = {key: cfg[key] for key in ("gpu", "local_files_only", "output_dir")}
         cfg = resume_state["config"] | hardware
@@ -86,6 +89,19 @@ def main():
     from torch.utils.tensorboard import SummaryWriter
     from transformers import AutoModelForMaskedLM, AutoTokenizer
     from . import scoring as equations
+    # Register the pinned A2D Qwen masked-LM classes before AutoModel loading.
+    import dllm
+
+    assert cfg["attention_implementation"] == "sdpa", "This block-mask path requires SDPA"
+    if cfg["sdpa_backend"] == "efficient":
+        torch.backends.cuda.enable_flash_sdp(False)
+        torch.backends.cuda.enable_mem_efficient_sdp(True)
+        torch.backends.cuda.enable_math_sdp(False)
+    else:
+        assert cfg["sdpa_backend"] == "math"
+        torch.backends.cuda.enable_flash_sdp(False)
+        torch.backends.cuda.enable_mem_efficient_sdp(False)
+        torch.backends.cuda.enable_math_sdp(True)
 
     if args.mode == "smoke" and resume_state is None:
         cfg.update(
@@ -96,6 +112,8 @@ def main():
         )
     torch.manual_seed(cfg["seed"])
     device, dtype = torch.device("cuda:0"), getattr(torch, cfg["dtype"])
+    if dtype == torch.bfloat16:
+        assert torch.cuda.is_bf16_supported(including_emulation=False), "GPU lacks native BF16 support"
     model_path = snapshot_download(
         cfg["model_id"],
         revision=cfg["model_revision"],
@@ -126,6 +144,10 @@ def main():
         state_path = Path(args.checkpoint) / "training_state.pt"
         if state_path.exists():
             model_state = torch.load(state_path, map_location="cpu", weights_only=False)
+    if model_state is not None:
+        saved = model_state["config"]
+        assert (saved["model_id"], saved["model_revision"]) == (cfg["model_id"], cfg["model_revision"]), (
+            "Checkpoint belongs to another pretrained model/revision")
     policy = (
         get_peft_model(policy, lora)
         if args.mode != "eval" or model_state is not None
@@ -155,6 +177,8 @@ def main():
             backend=cfg["compile_backend"],
             dynamic=cfg["compile_dynamic"],
         )
+        equations.batched_token_scores = torch.compile(equations.batched_token_scores,
+            backend=cfg["compile_backend"], dynamic=cfg["compile_dynamic"])
     forward, ref_forward = policy, reference
     name = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ") + "-" + args.mode
     out = (
@@ -308,6 +332,8 @@ def main():
                 )
                 for group in optimizer.param_groups:
                     group["lr"] = lr
+                torch.cuda.reset_peak_memory_stats(device)
+                update_started = time.perf_counter()
                 running += update_batch(
                     policy,
                     forward,
@@ -335,7 +361,11 @@ def main():
                         "score/difference",
                         "log_z/mean",
                     )
-                    metrics = dict(zip(tags, values)) | {"lr": lr}
+                    metrics = dict(zip(tags, values)) | {
+                        "lr": lr,
+                        "perf/update_seconds": time.perf_counter() - update_started,
+                        "perf/peak_allocated_gib": torch.cuda.max_memory_allocated(device) / 2**30,
+                    }
                     for tag, value in metrics.items():
                         writer.add_scalar(tag, value, step)
                     writer.flush()

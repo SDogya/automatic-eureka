@@ -63,3 +63,53 @@ def masked_score(model, prompt, completion, masks, mask_id, dtype, empty_score, 
         scores.append(masked_token_mean(logits, completion[positions]))
     return torch.stack(scores).mean()
 
+
+def batched_token_scores(logits, targets, selected, empty_score):
+    """FP32 per-corruption mean; unselected/padded positions have zero weight."""
+    logp = logits.float().log_softmax(-1).gather(-1, targets[..., None]).squeeze(-1)
+    counts = selected.sum(-1)
+    means = (logp * selected).sum(-1) / counts.clamp_min(1)
+    return torch.where(counts > 0, means, torch.full_like(means, empty_score))
+
+
+def masked_scores(model, prompt, completions, masks, mask_id, dtype, empty_score,
+                  block_size, pad_id, microbatch):
+    """Batch C completions × K corruptions without changing Eq.(4).
+
+Right padding preserves the original block grid and RoPE positions. Each row's
+true extent is used in both query and key masks. Only the union of corrupted
+positions reaches lm_head; loss weights exclude all unselected positions.
+Scores are averaged over K before the caller squares its residual. Prefix KV
+from generation is never reused in this differentiable masked-context forward.
+"""
+    device = prompt.device
+    c, k = len(completions), masks[0].shape[0]
+    longest = max(x.numel() for x in completions)
+    mask_cpu = torch.zeros(c * k, longest, dtype=torch.bool)
+    tokens = torch.full((c * k, prompt.numel() + longest), pad_id, device=device, dtype=torch.long)
+    tokens[:, :prompt.numel()] = prompt
+    lengths = []
+    for i, (completion, corruptions) in enumerate(zip(completions, masks)):
+        length = completion.numel()
+        tokens[i*k:(i+1)*k, prompt.numel():prompt.numel()+length] = completion
+        mask_cpu[i*k:(i+1)*k, :length] = corruptions
+        lengths.extend([prompt.numel() + length] * k)
+    positions = mask_cpu.any(0).nonzero().flatten().to(device)
+    if not positions.numel():
+        return torch.full((c,), empty_score, device=device)
+    chosen = mask_cpu.to(device, non_blocking=True)
+    targets = tokens[:, prompt.numel()+positions].clone()
+    tokens[:, prompt.numel():] = torch.where(chosen, mask_id, tokens[:, prompt.numel():])
+    attention, ids = staircase_attention(tokens.shape[1], block_size, device)
+    valid = torch.arange(tokens.shape[1], device=device)[None] < torch.tensor(lengths, device=device)[:, None]
+    scores = []
+    for start in range(0, c*k, microbatch):
+        stop = min(start + microbatch, c*k)
+        row_valid = valid[start:stop]
+        row_mask = attention & row_valid[:, None, :, None] & row_valid[:, None, None, :]
+        with torch.autocast(device.type, dtype=dtype):
+            logits = model(tokens[start:stop], attention_mask=row_mask, position_ids=ids,
+                           use_cache=False, logits_to_keep=prompt.numel()+positions).logits
+        scores.append(batched_token_scores(logits, targets[start:stop], chosen[start:stop, positions], empty_score))
+    return torch.cat(scores).reshape(c, k).mean(-1)
+

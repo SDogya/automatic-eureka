@@ -8,7 +8,7 @@ from .masking import antithetic_masks
 from .model import prompt_features
 from .objective import balance_residual
 from .sampling import sample_group
-from .scoring import masked_score
+from .scoring import masked_scores
 from .training import scored_completions
 
 
@@ -101,41 +101,19 @@ def evaluate(
             centered = rewards - rewards.mean()
             with torch.no_grad():
                 log_z = head(prompt_features(policy, prompt, dtype, cfg["eval_block_size"])).squeeze(0)
+                selected = ids[:cfg["rollouts"]]
+                completions = [generated[g, :len(tokens)] for g, tokens in enumerate(selected)]
+                masks = [antithetic_masks(torch.tensor([t not in (tokenizer.eos_token_id, tokenizer.pad_token_id)
+                    for t in tokens]), cfg["mask_replicates"], mask_rng, cfg["mask_endpoint"]) for tokens in selected]
                 losses = []
-                for g, tokens in enumerate(ids[: cfg["rollouts"]]):
-                    eligible = torch.tensor(
-                        [token != tokenizer.eos_token_id for token in tokens]
-                    )
-                    masks = antithetic_masks(
-                        eligible, cfg["mask_replicates"], mask_rng, cfg["mask_endpoint"]
-                    )
-                    completion = generated[g, : len(tokens)]
-                    score = masked_score(
-                        forward,
-                        prompt,
-                        completion,
-                        masks,
-                        tokenizer.mask_token_id,
-                        dtype,
-                        cfg["empty_score"],
-                        cfg["eval_block_size"],
-                    )
-                    ref_score = masked_score(
-                        reference,
-                        prompt,
-                        completion,
-                        masks,
-                        tokenizer.mask_token_id,
-                        dtype,
-                        cfg["empty_score"],
-                        cfg["eval_block_size"],
-                    )
-                    losses.append(
-                        balance_residual(
-                            score, ref_score, centered[g], log_z, cfg["beta"]
-                        ).square()
-                    )
-                validation_loss += torch.stack(losses).mean()
+                for start in range(0, len(completions), cfg["score_completion_batch_size"]):
+                    stop = min(start + cfg["score_completion_batch_size"], len(completions))
+                    score_args = (prompt, completions[start:stop], masks[start:stop], tokenizer.mask_token_id,
+                        dtype, cfg["empty_score"], cfg["eval_block_size"], tokenizer.pad_token_id, cfg["score_microbatch"])
+                    score = masked_scores(forward, *score_args)
+                    ref_score = masked_scores(reference, *score_args)
+                    losses.append(balance_residual(score, ref_score, centered[start:stop], log_z, cfg["beta"]).square())
+                validation_loss += torch.cat(losses).mean()
             answers.append(
                 {
                     "example_id": row["example_id"],

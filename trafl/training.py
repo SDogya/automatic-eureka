@@ -8,7 +8,7 @@ from .model import prompt_features
 from .objective import balance_residual
 from .rewards import boxed_reward, trim_completion
 from .sampling import sample_group
-from .scoring import masked_score
+from .scoring import masked_scores
 
 
 def scored_completions(generated, tokenizer, answer, cfg):
@@ -69,7 +69,7 @@ def update_batch(
 
     Zero_grad вызывается один раз. На prompt сначала fresh rollout и group centering,
     затем K shared masks policy/reference на completion, mean scores до square.
-    Каждый completion backward делится на B*G; optimizer.step ровно один после
+    Сумма squares в каждом chunk делится на B*G; optimizer.step ровно один после
     всех rows/rollouts. Optional gradient clipping применяется перед этим update.
     Группы с одинаковыми rewards сохраняются. Reward/rollout gradients отсутствуют."""
     import torch
@@ -100,42 +100,26 @@ def update_batch(
         policy.train()
         stats[1] += rewards.sum() / denominator
         stats[2] += (rewards.max() != rewards.min()).float() / len(rows)
-        for g, ids in enumerate(token_lists):
-            completion = generated[g, : len(ids)]
-            eligible = torch.tensor([token != tokenizer.eos_token_id for token in ids])
-            masks = antithetic_masks(
-                eligible, cfg["mask_replicates"], mask_rng, cfg["mask_endpoint"]
-            )
-            score = masked_score(
-                forward,
-                prompt,
-                completion,
-                masks,
-                tokenizer.mask_token_id,
-                dtype,
-                cfg["empty_score"],
-                cfg["train_block_size"],
-            )
+        completions = [generated[g, :len(ids)] for g, ids in enumerate(token_lists)]
+        masks = [antithetic_masks(torch.tensor([t not in (tokenizer.eos_token_id, tokenizer.pad_token_id)
+                 for t in ids]), cfg["mask_replicates"], mask_rng, cfg["mask_endpoint"]) for ids in token_lists]
+        chunk = cfg["score_completion_batch_size"]
+        for start in range(0, len(completions), chunk):
+            stop = min(start + chunk, len(completions))
+            score_args = (prompt, completions[start:stop], masks[start:stop], tokenizer.mask_token_id,
+                dtype, cfg["empty_score"], cfg["train_block_size"], tokenizer.pad_token_id, cfg["score_microbatch"])
+            score = masked_scores(forward, *score_args)
             with torch.no_grad():
-                ref_score = masked_score(
-                    reference,
-                    prompt,
-                    completion,
-                    masks,
-                    tokenizer.mask_token_id,
-                    dtype,
-                    cfg["empty_score"],
-                    cfg["train_block_size"],
-                )
+                ref_score = masked_scores(reference, *score_args)
             log_z = head(features).squeeze(0)
             residual = balance_residual(
-                score, ref_score, centered[g], log_z, cfg["beta"]
+                score, ref_score, centered[start:stop], log_z, cfg["beta"]
             )
-            loss = residual.square() / denominator
+            loss = residual.square().sum() / denominator
             loss.backward()
             stats[0] += loss.detach()
-            stats[3] += (score - ref_score).detach() / denominator
-            stats[4] += log_z.detach() / denominator
+            stats[3] += (score - ref_score).detach().sum() / denominator
+            stats[4] += log_z.detach() * (stop-start) / denominator
         record.write(
             json.dumps(
                 {

@@ -129,9 +129,19 @@ def sample_group(model, prompt, count, length, prefix, cfg, tokenizer, rng, dtyp
         dtype: Autocast dtype.
     
     Returns:
-        Long tensor [count, length] после полного denoising, до EOS trimming.
+        Long tensor [count, length] до EOS trimming; после остановленного EOS блока
+        следующие блоки могут содержать MASK.
     
-    Wrapper не изменяет sampler и не смешивает training settings с evaluation."""
+    generation_cache выбирает cached decoder; False сохраняет исходную ветку
+    для сравнения. Train/eval используют отдельные настройки."""
+    if cfg.get("generation_cache", False):
+        from .cached_sampling import CachedSampler
+        if not hasattr(model, "_trafl_sampler"):
+            model._trafl_sampler = CachedSampler(model, cfg)
+        return model._trafl_sampler.sample(prompt, count, length, cfg[f"{prefix}_block_size"],
+            cfg[f"{prefix}_temperature"], cfg[f"{prefix}_top_p"], cfg[f"{prefix}_confidence_threshold"],
+            tokenizer.mask_token_id, cfg["generation_suppress_mask"], rng, dtype,
+            tokenizer.eos_token_id, cfg["generation_stop_on_eos"])
     return generate(
         model,
         prompt,

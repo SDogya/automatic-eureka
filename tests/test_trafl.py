@@ -188,7 +188,7 @@ def test_real_update_one_step_and_frozen_reference(monkeypatch):
     policy_before = policy.weight.detach().clone()
     generated = torch.tensor([[2, 2, 3], [1, 1, 3], [2, 2, 3], [1, 1, 3], [1, 1, 3]])
     monkeypatch.setattr(run, "sample_group", lambda *a: generated)
-    tokenizer = SimpleNamespace(mask_token_id=3, eos_token_id=3,
+    tokenizer = SimpleNamespace(mask_token_id=3, eos_token_id=3, pad_token_id=0,
         batch_decode=lambda ids, skip_special_tokens: [r"\boxed{2}", r"\boxed{0}", r"\boxed{2}", "", ""])
     rows = [{"input_ids": torch.tensor([0, 0]), "answer": "#### 2", "question": "test", "example_id": 0}]
     steps, original = [], optimizer.step

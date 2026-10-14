@@ -29,11 +29,15 @@ Block size в scoring/head соответствует `train_block_size` или 
 текущего protocol. Значение 32 совпадает с model-card default и evaluation
 статьи TraFL. В generation grid отсчитывается от начала всего prompt:
 при P % block_size != 0 сначала заполняется остаток prompt block, затем
-полные blocks и последний partial block. Prefix пересчитывается без cache,
-в том числе prompt positions, которые входят в первый completion block.
+полные blocks и последний partial block. Завершённые blocks кэшируются; незавершённый suffix prompt пересчитывается
+вместе с текущим completion block. Перед каждым новым rollout prefix cache
+строится заново из текущих весов policy.
 
 Nucleus top-p .91, temperature, confidence threshold/forced maximum,
-mask suppression и EOS trimming сохраняют предыдущие собственные conventions.
+mask suppression и EOS trimming остаются явными собственными conventions.
+При первом EOS завершается текущий block, последующие blocks для этой строки
+не генерируются. Для score/reward completion обрезается после первого EOS;
+EOS видимый, исключён из масок. Дополнительный хвост не входит в score.
 Никакого logits shift нет: predictions относятся к тем же masked positions.
 
 Ядро TraFL сохранено: G5, K4, group reward centering, shared corruptions,
@@ -48,7 +52,7 @@ Staircase architecture — адаптация разрешённой польз�
 ```bash
 cd /home/sirius03/test/trafl
 git switch bd3lm
-source ../.venv/bin/activate
+source ../a100-package-check/.venv/bin/activate
 python run.py --config config.yaml --mode smoke
 python run.py --config config.yaml --mode train
 python run.py --config config.yaml --mode eval --checkpoint runs/bd3lm/ИМЯ/checkpoint
@@ -59,14 +63,18 @@ tensorboard --logdir runs --host 127.0.0.1 --port 6006
 Локальный запуск использует то же CLI после подготовки окружения и HF cache;
 физический `gpu` задаётся YAML. Checkpoints этой модели нужно обучать заново:
 MDLM adapters/resume checkpoints относятся к другой base revision и attention
-protocol. Full resume продолжается из BD3LM checkpoint с его saved config/RNG.
+protocol. Full resume продолжается из checkpoint того же `training_protocol` с saved
+config/RNG. Старый no-cache checkpoint продолжать на новом sampler запрещено:
+для него сохранён коммит до оптимизации `1c8a70c`. Seeds новой nucleus реализации
+дают другой поток draws, хотя categorical distribution остаётся прежней.
 
 ## Модули и источники
 
 Карта исходной модулизации и описание full resume сохранены в
 [предыдущем README](docs/mdlm_modular_README.md).
 BD3LM additions: `attention.py`, geometry kwargs в `scoring.py` и `model.py`,
-absolute-block boundaries в `sampling.py`, block-size arguments у callers
+cached decoder/CUDA graphs в `cached_sampling.py`, legacy oracle в `sampling.py`,
+batched scoring в `scoring.py`, block-size arguments у callers
 в `training.py` и `evaluation.py`. Плоский YAML задаёт model ID/revision,
 train/eval block size и остальные прежние настройки.
 
@@ -75,11 +83,53 @@ train/eval block size и остальные прежние настройки.
 - [TraFL PDF](docs/32236_Beyond_Mode_Seeking_RL_T.pdf)
 - [Adaptation record](evidence/bd3lm_adaptation.json)
 
-## Статус проверки
+## Производительность и проверка
 
-Python/YAML syntax и import/call targets проверены статически.
-Новые checks в `tests/test_bd3lm.py` описывают known staircase matrix и
-partial/aligned prompt boundaries; старые synthetic denoisers принимают
-новые attention kwargs. Тесты, real smoke, training и evaluation для BD3LM
-не запускались по ранее указанному пользователем ограничению на тесты.
-Исторический audit и numerical results в docs/evidence относятся к MDLM.
+В [config.yaml](config.yaml) настройки оптимизаций отделены от G/K:
+`score_completion_batch_size: 5`, `score_microbatch: 20` позволяют A100 считать
+все 5×4 corruptions батчем. На небольших GPU уменьшить до 1/1 или 1/4.
+Completion chunk ограничивает память autograd; microbatch внутри chunk ограничивает
+forward workspace, но графы всех его masks сохраняются до backward. KV cache
+не применяется к differentiable scoring. Padding скрыт attention mask и не
+участвует в нормировке. Среднее K вычисляется до square, denominator остаётся B×G.
+
+`generation_compile` компилирует nucleus/confidence transition;
+`generation_cuda_graph` убирает Python dispatch из модельных forwards.
+Графы читают текущие LoRA веса после optimizer update; cache не переносится
+между rollout. Первый захват/компиляция медленнее тёплого запуска. Лимит 32
+shape entries предотвращает постоянный перезахват типичных длин 256/512;
+при нехватке памяти уменьшить его или отключить graphs. Reference остаётся
+отдельной замороженной моделью. TensorBoard дополнительно пишет
+`perf/update_seconds` (время последнего логируемого update) и
+`perf/peak_allocated_gib`.
+
+38 проверок прошли в серверном изолированном окружении: Eq.(4), BG normalization,
+one optimizer step, reference freezing, ragged batches/empty masks, scalar/batched
+scores и gradients, compiled/eager reduction, EOS stopping, partial prompt blocks,
+cold sampler replay сохранённого RNG и CUDA graph после изменения LoRA весов.
+Окружение: PyTorch 2.8.0+cu126, Transformers 4.57.0, PEFT 0.17.1,
+dllm commit `ca176752fbceec49c6b4777a2c18ae88e4eb10ed`.
+Существующее `../.venv` и работающие benchmarks не изменены.
+
+[Реальный замер](evidence/cached_training_probe.json): Quadro RTX 4000, FP16,
+prompt 15 tokens, completion 32, G5/K4, rank128. При temperature .6/top-p .91:
+rollout 3.755 → 1.471 с после прогрева (**2.55×**); score forward
+2.271 → .546 с (**4.16×**, no_grad, microbatch4). Greedy tokens совпадают;
+максимальная разница score .000909 из-за FP16 batching.
+Отдельный полный joint update с ненулевым log Z, длиной 8 и chunks1/1 прошёл,
+reference не изменяется, LoRA gradients ненулевые; peak allocated 3.83 GiB.
+Время первого такого update 13.44 с включает compilation.
+Это короткая проверка, не замер полного GSM8K throughput. A100/BF16 ещё не
+проверены. A100 YAML оставляет BF16; runner отвергает GPU без нативной поддержки.
+
+Повторить probe на доступной карте (FP16 используется только для старого сервера):
+
+```bash
+CUDA_VISIBLE_DEVICES=4 python scripts/performance_probe.py --dtype float16
+python -m pytest tests -q
+```
+
+Полный Train/Eval одной policy сравнивать только с base evaluation того же
+cached-nucleus protocol. Предыдущий fast pretrained benchmark без top-p cutoff
+не является сопоставимым baseline. Threshold .9/cache и EOS stopping остаются
+помеченными choices/adaptation: полного training decoder authors не публикуют.
