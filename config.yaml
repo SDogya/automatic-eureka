@@ -54,6 +54,11 @@ completion_eos: truncate_after_first_visible_eos
 # OWN G01–G05: author beta, batch, optimizer, horizon/warmup are unpublished.
 beta: 1.0
 prompt_batch_size: 1
+# OWN parallel experiment: prompt_batch_size is PER GPU. torchrun sets world
+# size; global B = local B * world size. No automatic LR or horizon scaling.
+distributed_backend: nccl
+distributed_drop_last: true
+rank_seed_stride: 1000003
 updates: 100
 optimizer: AdamW
 adam_betas: [0.9, 0.999]

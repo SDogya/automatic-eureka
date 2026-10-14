@@ -103,7 +103,7 @@ shape entries предотвращает постоянный перезахва
 `perf/update_seconds` (время последнего логируемого update) и
 `perf/peak_allocated_gib`.
 
-38 проверок прошли в серверном изолированном окружении: Eq.(4), BG normalization,
+Для предыдущего commit `20eaad5` прошли 38 проверок в серверном изолированном окружении: Eq.(4), BG normalization,
 one optimizer step, reference freezing, ragged batches/empty masks, scalar/batched
 scores и gradients, compiled/eager reduction, EOS stopping, partial prompt blocks,
 cold sampler replay сохранённого RNG и CUDA graph после изменения LoRA весов.
@@ -133,3 +133,80 @@ python -m pytest tests -q
 cached-nucleus protocol. Предыдущий fast pretrained benchmark без top-p cutoff
 не является сопоставимым baseline. Threshold .9/cache и EOS stopping остаются
 помеченными choices/adaptation: полного training decoder authors не публикуют.
+
+## Одна общая policy на нескольких GPU
+
+Активировать окружение из команд выше, выбрать карты и запустить:
+
+```bash
+CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --standalone --nproc-per-node=4 \
+  run.py --config config.yaml --mode train
+tensorboard --logdir runs/bd3lm --host 127.0.0.1 --port 6006
+```
+
+Для одного GPU остаётся `python run.py --config config.yaml --mode train`.
+В `torchrun` выбор карт задаёт `CUDA_VISIBLE_DEVICES`, YAML `gpu` относится
+к обычному запуску через Python. Каждая выбранная карта должна поддерживать
+заданный dtype; BF16 требует нативной поддержки. Существующие процессы не
+останавливаются. Этот запуск вручную выбирает GPU; автоматического поиска
+свободных карт и Slurm нет.
+
+Это synchronous data parallel на `torch.distributed`, без DDP wrapper:
+каждый процесс генерирует G5 для своих prompts, считает K4 shared masks,
+накапливает gradients локально и **одним flattened all-reduce** усредняет только
+LoRA/head gradients. Затем clipping и общий optimizer update; frozen reference
+не синхронизируется и не обучается. Такой прямой путь сохраняет streamed backward,
+не вызывает DDP reducer на генерации и detached features, и обрабатывает даже
+rank с только empty scores. Инициализация trainable weights broadcast один раз;
+после каждого update все policy/head веса одинаковые. Параметры не обновляются
+между rollout и loss одного update.
+
+`prompt_batch_size` — **на одну GPU**: при 1 и четырёх ranks глобальный B=4,
+20 fresh rollouts за update. Centering по пять ответов каждого prompt; локальный
+loss нормируется на local B×G, mean gradients по ranks даёт global B×G.
+LR/horizon автоматически не масштабируются. G/K, LoRA/head, decoder и reward
+сохраняются. Это новый эксперимент с увеличенным B; batch авторов не опубликован.
+Effective config записывает `distributed_world_size` и `global_prompt_batch_size`.
+
+Общая seeded permutation разделяется на непересекающиеся local batches.
+Неполный distributed batch отбрасывается (`distributed_drop_last: true`),
+никакие examples не повторяются для padding. В следующей epoch новая permutation;
+seeded shuffle общий, rollout/mask RNG независимые: base seed + rank×1000003.
+DataLoader остаётся pinned, два workers на процесс. AMP/compile, nucleus transition,
+completed-prefix cache и CUDA graphs из предыдущей версии сохранены.
+
+Validation prompts тоже распределяются по ranks, без padding/повторов;
+loss/Pass@k суммируются и делятся на фактическое общее число задач, включая
+неравные evaluation shards. Rank zero пишет общий TensorBoard и объединённые
+`answers-step*.json`; train JSONL и evaluation shards имеют suffix `rankN`.
+Evaluation RNG зависит от rank, поэтому matched before/after evaluation требует
+одинаковое число ranks и порядок задач.
+
+Теги TensorBoard: `loss/train`, `loss/val` (также по длинам), `reward/train`,
+`reward/val`, `reward/mixed_groups`, `score/difference`, `log_z/mean`, `lr`,
+`eval/<length>/pass@k`, `perf/update_seconds`, `perf/peak_allocated_gib`,
+`perf/prompts_per_second`. Train statistics усредняются по ranks; время и память
+логируемого update — максимум по ranks, throughput использует глобальный B.
+Синхронизация для timing выполняется только на logging boundary.
+
+Resume выполняется той же командой `torchrun`, с тем же world size:
+
+```bash
+CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun --standalone --nproc-per-node=4 \
+  run.py --config config.yaml --mode train --resume runs/bd3lm/ИМЯ/checkpoint
+```
+
+Checkpoint сохраняет одну общую модель/head/optimizer/scheduler и runtime каждого
+rank: RNG, epoch permutation, cursor DataLoader, позиции JSONL и running metrics.
+Rank zero атомарно публикует state, остальные ждут. Resume обрезает каждый JSONL
+до своего saved cursor; смена world size при full resume отклоняется. Старые
+single-GPU checkpoints продолжаются на одном GPU. Multi-node/shared-storage
+настройки и restart manager в этот MVP не входят.
+
+Для этого изменения запускается только один интеграционный тест:
+`tests/test_parallel.py::test_parallel_update_matches_full_batch`.
+Он прошёл: **1 passed in 11.71s**. Использует два CPU/Gloo ranks и synthetic denoiser: сравнивает gradients,
+веса и metrics с обычным B=2, проверяет непересекающиеся shards, empty-score rank,
+checkpoint/RNG/optimizer replay и weighted evaluation на неравных shards.
+Это проверка математики/координации, а не проверка NCCL или скорости нескольких GPU.
+Полное обучение и дополнительные замеры в этой задаче не запускаются.

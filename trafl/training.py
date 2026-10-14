@@ -11,6 +11,35 @@ from .sampling import sample_group
 from .scoring import masked_scores
 
 
+def synchronize_gradients(parameters):
+    """Average accumulated LoRA/head gradients once, after all local chunks.
+
+    Each rank's loss is divided by its local B*G. Equal-sized prompt shards
+    make the rank mean exactly the global B*G mean. A single flat collective
+    includes a presence bitmap: a rank with only empty scores contributes zeros,
+    and globally unused parameters retain grad=None (AdamW skips them).
+    No policy/reference forwards participate in communication or DDP hooks.
+    """
+    import torch
+    import torch.distributed as dist
+
+    if not dist.is_initialized():
+        return
+    parameters = list(parameters)
+    present = torch.tensor([p.grad is not None for p in parameters],
+                           device=parameters[0].device, dtype=torch.float32)
+    flat = torch.cat([p.grad.flatten() if p.grad is not None else torch.zeros_like(p).flatten()
+                      for p in parameters] + [present])
+    dist.all_reduce(flat)
+    presence = flat[-len(parameters):].cpu().tolist()  # One transfer per update.
+    flat[:-len(parameters)].div_(dist.get_world_size())
+    offset = 0
+    for parameter, used in zip(parameters, presence):
+        end = offset + parameter.numel()
+        parameter.grad = flat[offset:end].view_as(parameter).to(parameter.dtype) if used else None
+        offset = end
+
+
 def scored_completions(generated, tokenizer, answer, cfg):
     # One host transfer at the generation boundary: reward extraction requires text.
     r"""Обрезать/декодировать group outputs и вычислить string-based rewards.
@@ -70,7 +99,8 @@ def update_batch(
     Zero_grad вызывается один раз. На prompt сначала fresh rollout и group centering,
     затем K shared masks policy/reference на completion, mean scores до square.
     Сумма squares в каждом chunk делится на B*G; optimizer.step ровно один после
-    всех rows/rollouts. Optional gradient clipping применяется перед этим update.
+    всех rows/rollouts. При initialized process group градиенты сначала
+    усредняются по ranks, затем clipping и один joint update на каждом rank.
     Группы с одинаковыми rewards сохраняются. Reward/rollout gradients отсутствуют."""
     import torch
 
@@ -132,6 +162,8 @@ def update_batch(
             )
             + "\n"
         )
+    synchronize_gradients(p for p in itertools.chain(policy.parameters(), head.parameters())
+                          if p.requires_grad)
     if cfg["grad_clip"] is not None:
         torch.nn.utils.clip_grad_norm_(
             itertools.chain(policy.parameters(), head.parameters()), cfg["grad_clip"]

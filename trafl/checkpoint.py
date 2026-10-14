@@ -44,7 +44,11 @@ def restore_rng(state, rng, mask_rng):
     random.setstate(state["python"])
     np.random.set_state(state["numpy"])
     torch.set_rng_state(state["torch_cpu"])
-    torch.cuda.set_rng_state_all(state["torch_cuda"])
+    if state.get("cuda_local"):
+        if state["torch_cuda"]:
+            torch.cuda.set_rng_state(state["torch_cuda"][0])
+    else:
+        torch.cuda.set_rng_state_all(state["torch_cuda"])
     rng.set_state(state["rollout"])
     mask_rng.set_state(state["mask"])
 
@@ -78,6 +82,9 @@ def save_checkpoint(
     Returns:
         None. checkpoint/training_state.pt содержит policy/head/optimizer,
         original scheduler horizon/next update, selected IDs, RNG и logging context.
+        Parallel checkpoint дополнительно содержит rank_states: RNG, loader,
+        record cursor и running metrics каждого rank. Только rank zero пишет
+        модель/optimizer; остальные ждут атомарной публикации.
     
     После torch.save в temporary file выполняются fsync, atomic os.replace
     и fsync каталога: прерванная запись сохраняет previous authoritative snapshot.
@@ -86,12 +93,37 @@ def save_checkpoint(
     Сохранять нужно между полными optimizer updates, не внутри rollout backward."""
     import numpy as np
     import torch
+    import torch.distributed as dist
     from peft import get_peft_model_state_dict
 
     checkpoint = out / "checkpoint"
-    checkpoint.mkdir(exist_ok=True)
     record.flush()
     os.fsync(record.fileno())
+    local = {
+        "loader": loader_state,
+        "running": running.detach().cpu(),
+        "accumulated": accumulated,
+        "record_position": record.tell(),
+        "rng": {
+            "python": random.getstate(),
+            "numpy": np.random.get_state(),
+            "torch_cpu": torch.get_rng_state(),
+            "torch_cuda": [torch.cuda.get_rng_state()] if torch.cuda.is_available() else [],
+            "cuda_local": True,
+            "rollout": rng.get_state(),
+            "mask": mask_rng.get_state(),
+        },
+    }
+    parallel = dist.is_initialized()
+    rank = dist.get_rank() if parallel else 0
+    rank_states = [None] * dist.get_world_size() if parallel and rank == 0 else None
+    if parallel:
+        # Only small runtime state crosses ranks; model/optimizer are identical.
+        dist.gather_object(local, rank_states, dst=0)
+        if rank != 0:
+            dist.barrier()
+            return
+    checkpoint.mkdir(exist_ok=True)
     state = {
         "policy": get_peft_model_state_dict(policy),
         "head": head.state_dict(),
@@ -99,20 +131,11 @@ def save_checkpoint(
         "step": step,
         "config": dict(cfg),
         "scheduler": {"next_update": step, "horizon": cfg["updates"]},
-        "loader": loader_state,
-        "running": running.detach().cpu(),
-        "accumulated": accumulated,
-        "record_position": record.tell(),
         "selected_examples": json.loads((out / "selected_examples.json").read_text()),
-        "rng": {
-            "python": random.getstate(),
-            "numpy": np.random.get_state(),
-            "torch_cpu": torch.get_rng_state(),
-            "torch_cuda": torch.cuda.get_rng_state_all(),
-            "rollout": rng.get_state(),
-            "mask": mask_rng.get_state(),
-        },
+        **local,
     }
+    if parallel:
+        state["rank_states"] = rank_states
     # Self-contained authoritative resume state; old state survives interrupted writes.
     temporary = checkpoint / "training_state.pt.tmp"
     with temporary.open("wb") as stream:
@@ -129,4 +152,6 @@ def save_checkpoint(
     (checkpoint / "config.yaml").write_text(
         yaml.safe_dump(cfg, sort_keys=False, allow_unicode=True)
     )
+    if parallel:
+        dist.barrier()
 

@@ -18,7 +18,7 @@ def collate(rows):
 
 
 
-def prepared_data(cfg, tokenizer, out, selected_ids=None):
+def prepared_data(cfg, tokenizer, out, selected_ids=None, write_output=True):
     r"""Загрузить и один раз токенизировать train/evaluation prompt subsets.
     
     Args:
@@ -26,6 +26,7 @@ def prepared_data(cfg, tokenizer, out, selected_ids=None):
             resolved revision записывается обратно в cfg.
         tokenizer: Qwen tokenizer с apply_chat_template и enable_thinking.
         out: Run directory для selected_examples.json.
+        write_output: Только rank zero пишет shared selected_examples.json.
         selected_ids: Сохранённые split -> example IDs при resume; иначе
             seeded randperm и train_limit/eval_limit выбирают initial subsets.
     
@@ -78,22 +79,25 @@ def prepared_data(cfg, tokenizer, out, selected_ids=None):
             )
         result.append(rows)
         selected[cfg[split_key]] = indices.tolist()
-    write_json(out / "selected_examples.json", selected)
+    if write_output:
+        write_json(out / "selected_examples.json", selected)
     return result
 
 
 
-def epoch_batches(train, cfg, state):
+def epoch_batches(train, cfg, state, rank=0, world_size=1):
     r"""Создать iterator оставшихся batches из явного состояния текущей epoch.
     
     Args:
         train: Готовые CPU prompt rows без случайных transforms.
-        cfg: Batch size, workers и pin_memory settings.
+        cfg: Per-rank batch size, workers и pin_memory settings.
+        rank, world_size: Rank внутри single-node parallel run.
         state: Mutable loader checkpoint dict: epoch, order, next_batch,
             shuffle_rng, worker_rng и epoch_worker_rng.
     
     Returns:
-        (iterator, full_epoch_batch_count). Последний batch может быть неполным.
+        (iterator, global_epoch_update_count). Single GPU сохраняет partial tail;
+        parallel shards равного размера, общий incomplete tail отбрасывается.
     
     Когда order отсутствует или epoch закончена, draw новой permutation использует
     saved shuffle generator и обновляет его state. Для частично обработанной epoch
@@ -103,8 +107,14 @@ def epoch_batches(train, cfg, state):
     import torch
     from torch.utils.data import DataLoader
 
-    size = cfg["prompt_batch_size"]
-    count = (len(train) + size - 1) // size
+    local_size = cfg["prompt_batch_size"]
+    size = local_size * world_size
+    # Do not repeat examples to pad the last distributed batch. Every rank
+    # receives the same local B; the shuffled incomplete tail is dropped.
+    drop_last = world_size > 1 and cfg["distributed_drop_last"]
+    count = len(train) // size if drop_last else (len(train) + size - 1) // size
+    assert world_size == 1 or drop_last, "Parallel training requires equal, nonempty prompt shards"
+    assert count > 0, "Train subset must contain at least one global prompt batch"
     if state["order"] is None or state["next_batch"] == count:
         shuffle_rng = torch.Generator().set_state(state["shuffle_rng"])
         state["order"] = torch.randperm(len(train), generator=shuffle_rng).tolist()
@@ -115,7 +125,8 @@ def epoch_batches(train, cfg, state):
     # Prefetch never advances next_batch: only a completed optimizer update does.
     order = state["order"]
     batches = [
-        order[i : i + size] for i in range(state["next_batch"] * size, len(order), size)
+        order[i + rank*local_size : min(i + (rank+1)*local_size, len(order))]
+        for i in range(state["next_batch"] * size, count*size, size)
     ]
     worker_rng = torch.Generator().set_state(state["epoch_worker_rng"])
     loader = DataLoader(

@@ -44,6 +44,8 @@ def evaluate(
     writer,
     out,
     step,
+    rank=0,
+    world_size=1,
 ):
     r"""Посчитать Pass@k и diagnostic TraFL validation loss на held-out rows.
     
@@ -66,15 +68,18 @@ def evaluate(
     внутри этой группы и K одинаковыми policy/reference masks, всё под no_grad.
     Сохраняются ответы/метрики, TensorBoard flush; на выходе policy.train()."""
     import torch
+    import torch.distributed as dist
 
     policy.eval()
     results = {}
     for length in cfg["eval_max_new_tokens"]:
-        rng = torch.Generator(device=device).manual_seed(cfg["eval_seed"] + length)
-        mask_rng = torch.Generator().manual_seed(cfg["mask_seed"])
-        totals, answers = {}, []
+        offset = rank * cfg.get("rank_seed_stride", 1000003)
+        rng = torch.Generator(device=device).manual_seed(cfg["eval_seed"] + length + offset)
+        mask_rng = torch.Generator().manual_seed(cfg["mask_seed"] + offset)
+        totals = {f"pass@{k}": 0.0 for k in cfg["eval_pass_k"]}
+        answers = []
         validation_loss = torch.zeros((), device=device)
-        for row in rows:
+        for row in rows[rank::world_size]:
             prompt = row["input_ids"].to(device, non_blocking=True)
             generated = sample_group(
                 forward,
@@ -122,22 +127,30 @@ def evaluate(
                     "rewards": reward_list,
                 }
             )
-        totals["loss/val"] = validation_loss.cpu().item()
-        metrics = {name: value / len(rows) for name, value in totals.items()}
-        for name, value in metrics.items():
-            tag = f"{name}/{length}" if name == "loss/val" else f"eval/{length}/{name}"
-            writer.add_scalar(tag, value, step)
-        write_json(out / f"answers-step{step}-{length}.json", answers)
+        names = list(totals) + ["loss/val"]
+        summed = torch.cat((torch.tensor(list(totals.values()), device=device), validation_loss[None]))
+        if world_size > 1:
+            dist.all_reduce(summed)
+            write_json(out / f"answers-step{step}-{length}-rank{rank}.json", answers)
+            dist.barrier()
+            if rank == 0:
+                answers = [answer for r in range(world_size) for answer in
+                    json.loads((out / f"answers-step{step}-{length}-rank{r}.json").read_text())]
+                order = {row["example_id"]: i for i, row in enumerate(rows)}
+                answers.sort(key=lambda answer: order[answer["example_id"]])
+        metrics = dict(zip(names, (summed / len(rows)).cpu().tolist()))
+        if rank == 0:
+            for name, value in metrics.items():
+                tag = f"{name}/{length}" if name == "loss/val" else f"eval/{length}/{name}"
+                writer.add_scalar(tag, value, step)
+            write_json(out / f"answers-step{step}-{length}.json", answers)
         results[str(length)] = metrics
-    writer.add_scalar(
-        "loss/val", sum(m["loss/val"] for m in results.values()) / len(results), step
-    )
-    writer.add_scalar(
-        "reward/val", sum(m["pass@1"] for m in results.values()) / len(results), step
-    )
-    writer.flush()
-    write_json(out / f"metrics-step{step}.json", results)
-    print(json.dumps({"step": step, "evaluation": results}), flush=True)
+    if rank == 0:
+        writer.add_scalar("loss/val", sum(m["loss/val"] for m in results.values()) / len(results), step)
+        writer.add_scalar("reward/val", sum(m["pass@1"] for m in results.values()) / len(results), step)
+        writer.flush()
+        write_json(out / f"metrics-step{step}.json", results)
+        print(json.dumps({"step": step, "evaluation": results}), flush=True)
     policy.train()
     return results
 
