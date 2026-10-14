@@ -210,3 +210,42 @@ single-GPU checkpoints продолжаются на одном GPU. Multi-node/
 checkpoint/RNG/optimizer replay и weighted evaluation на неравных shards.
 Это проверка математики/координации, а не проверка NCCL или скорости нескольких GPU.
 Полное обучение и дополнительные замеры в этой задаче не запускаются.
+
+## Установка, скачивание и обучение одной командой
+
+```bash
+bash run.sh --gpus 0,1,2,3 --output "$HOME/trafl_bd3lm"
+```
+
+`run.sh` переиспользует bootstrap прежнего pretrained launcher и его
+`requirements.lock`: Python 3.12, Torch 2.8.0+cu126, Transformers 4.57.0,
+PEFT 0.17.1, TensorBoard, pinned dllm commit. При необходимости uv ставится
+в выбранную папку. Без sudo и изменения системного Python.
+
+В `--output` создаются `.venv/`, `models/` (HF cache), `datasets/`, `vendor/dllm/`,
+`launches/` (логи, requested/effective YAML, список пакетов) и `runs/`
+(checkpoints, ответы, TensorBoard). Модель указанной revision и GSM8K из текущего
+YAML скачиваются **до** torchrun; существующие cache используются повторно.
+Это тренировочный HF dataset, Kaggle benchmark не подключается к training.
+
+По умолчанию установка и обучение идут под nohup, сохраняются после отключения
+SSH. PID означает старт launcher, а не успешное завершение установки;
+ход установки и реальный run directory видны в напечатанном `launcher.log`.
+Для вывода в терминал добавить `--foreground`. GPU список определяет число ranks;
+BF16 configuration требует нативной поддержки BF16 на всех выбранных GPU.
+
+```bash
+bash run.sh --gpus 0,1,2,3 --mode smoke --foreground
+bash run.sh --gpus 0,1,2,3 --config my-config.yaml --output "$HOME/trafl_experiment"
+bash run.sh --gpus 0,1,2,3 --resume "$HOME/trafl_bd3lm/runs/ИМЯ/checkpoint"
+tail -f "$HOME/trafl_bd3lm/launches/ИМЯ/launcher.log"
+"$HOME/trafl_bd3lm/.venv/bin/tensorboard" --logdir "$HOME/trafl_bd3lm/runs"
+```
+
+Resume использует saved model/dataset/config, сохраняет прежний training horizon
+и требует то же число ranks. Скрипт блокирует одновременные запуски с одним
+output root, чтобы pip sync не менял окружение работающего обучения.
+Зависимости dllm namespace включают сторонние trainer/eval utilities;
+они устанавливаются для импорта dllm, обучение остаётся нашим чистым PyTorch.
+Для launcher выполнена только статическая проверка `bash -n`; установку,
+скачивание и обучение при подготовке этого скрипта не запускали.
