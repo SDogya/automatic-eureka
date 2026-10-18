@@ -1,4 +1,11 @@
-# Handoff: TraFL baselines port (branch `port-baselines`), state on 2026-10-11
+# Handoff: TraFL baselines port (branch `port-baselines`)
+
+**Status: CLOSED on 2026-10-18.** The principal halted the multi-thread gflownet-dllm project.
+- **Write-up chapter for this line:** `gflownet-dllm/writeup/lines/automatic_eureka.md`.
+- **Headline figure:** `results/report/headline.png` (`scripts/headline_figure.py`).
+- **Nothing is running.** The untracked files under `models/` are scratch: run checkpoints and pretraining by-products,
+  regenerable from the tracked jobs files.
+- **The state below is the final state** (last updated 2026-10-12).
 
 ## State in one paragraph
 

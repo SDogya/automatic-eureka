@@ -4,6 +4,15 @@ Branch `port-baselines`. Every number below comes from a file in `results/`
 or `models/`; exact quantities are computed over all 4⁸ = 65,536 strings and 5⁸ = 390,625 partial strings, not
 sampled. Plan and caveats: `INTEGRATION_PLAN.md`, `PORT_NOTES.md`.
 
+![headline](headline.png)
+
+*Headline (`scripts/headline_figure.py`). For every method and both backbones at β 0.5:*
+- *path drift per unit of string-law movement;*
+- *achieved / stated tilt;*
+- *wasted KL at a matched tilt.*
+
+*Sections 4b–4c explain each panel.*
+
 ## 1. What is compared
 
 The generator is a masked denoiser (MLP, or a transformer) that reveals one position per step.
