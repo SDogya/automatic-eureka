@@ -363,8 +363,10 @@ At b\* = 0.2, every uniform-rollout arm gets there within 23–471 updates:
 
 **What carries over from the MLP:**
 - the ordering in KL efficiency (wasted KL);
-- TraFL drifting more than TB (3× on the transformer);
-- TraFL keeping the most diversity under the decoder.
+- TraFL drifting more than TB (3× on the transformer).
+
+**What does not:** which arm keeps the most top-string diversity under the decoder. It depends on the backbone and the
+matching (READING, corrected 2026-10-18).
 
 **TraFL's under-tilt does not depend on the backbone** (0.82 of the stated tilt), while TB comes within 5 % of its
 stated tilt.

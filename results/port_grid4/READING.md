@@ -34,8 +34,15 @@ TB 0.14 ≈ TraFL 0.12, the same order as on the MLP.
 - The transformer carries left-to-right training over to other orders *less*.
 
 **Not predicted.**
-- **TraFL keeps the most top-string diversity under the decoder:** 4.34 at matched KL, 4.9–5.0 at the endpoint
-  (TB 3.3–3.5). The same holds on the MLP, by a smaller margin.
+- **Which arm keeps the most top-string diversity under the decoder depends on the backbone and on how arms are
+  matched.** There is no consistent leader, and decoder metrics are seed-fragile:
+
+  | | matched KL 1 | matched tilt b\* 0.2 |
+  |---|---|---|
+  | transformer | TraFL 4.34 (others 2.86–3.52) | RSPO 3.81 (TraFL 3.11) |
+  | MLP (grid 3) | ESPO 4.05 (TraFL 3.1–3.7) | TraFL 3.75–4.03 |
+
+  *Corrected 2026-10-18: this bullet first said TraFL leads on both backbones.*
 - **ESPO is backbone-sensitive:** path KL at matched terminal KL 1 is 0.28 on the transformer against 0.10 on the MLP.
 - **The unanchored arms collapse completely:** GRPO's laws all sit on one string. RSPO's final path KL is 144 in the
   random-order view.
